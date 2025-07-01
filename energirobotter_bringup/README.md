@@ -21,13 +21,13 @@ rosdep install --from-paths src -y --ignore-src
       - [Wired](#wired)
     - [Calibrate and Launch](#calibrate-and-launch)
     - [V1 Demo notes (Danish)](#v1-demo-notes-danish)
-  - [Teleoperation Unity](#teleoperation-unity)
+  - [Teleoperation Unity (Deprecated)](#teleoperation-unity-deprecated)
     - [Setup VR Headset](#setup-vr-headset-1)
       - [Connected to computer with Unity](#connected-to-computer-with-unity)
       - [Only VR headset](#only-vr-headset)
     - [Setup Robot](#setup-robot-1)
     - [Calibrate and Launch](#calibrate-and-launch-1)
-  - [Face Following](#face-following)
+  - [Face Following (Deprecated)](#face-following-deprecated)
 
 
 ## Teleoperation Vuer
@@ -84,6 +84,7 @@ The camera can only be served in the headset over a secure connection, for this 
 2. In the headset's browser, go to the `ngrok` URL shown in the terminal when launching the teleoperation. 
 
 #### Wired
+> You need to run `teleoperation_vuer.launch.py` (step 4. under "Setup Robot") on the computer the headset is connected to, to be able to acces its localhost address.
 2. Plug USB cable into headset first, then put it on
 3. Plug cable into computer, and accept USB connection in the headset (if you miss it, you can find it under notifications)
 > If the "`USB-C Port Disabled, water and debris`" message pops up, restart the headset and try again. If that does not work, use the other end of the cable and try again.
@@ -133,8 +134,7 @@ Steps:
 - Vær klar til at stoppe, hvis der sker noget, eller de tager headset af for hurtigt
 
 
-## Teleoperation Unity
-> **Deprecated**
+## Teleoperation Unity (Deprecated)
 
 ### Setup VR Headset 
 
@@ -189,9 +189,7 @@ Have a screen connected to the Jetson of the robot, to verify tracking data sent
 4. When done with the teleoperation, stop the `arm.launch.py` terminal
 
 
-## Face Following
-
-> **Deprecated**
+## Face Following (Deprecated)
 
 Use the `energirobotter_bringup` package's `vision.launch.py` to start the camera and face detection:
 
