@@ -16,7 +16,7 @@ BAUDRATE = 115200
 
 class DriverWaveshare(DriverServos):
     def __init__(self, config_files, control_frequency):
-        DriverServos.__init__(self, config_files)
+        super().__init__(config_files)
 
         self.port_handler = None
         self.running = True

@@ -62,11 +62,8 @@ class DriverServos(ABC):
                 self.logger.info(f"{servo_name}")
         self.logger.info(f"--------")
 
-        # Setup driver
-        self.driver_object = self.setup_driver()
-        self.coms_active = self.driver_object is not None
-
         # Member parameters
+        self.coms_active = False
         self.speed_min = 10.0
         self.distance_threshold_min = 5
 
@@ -132,6 +129,10 @@ class DriverServos(ABC):
             servo (ServoControl): Servo object containing servo attributes.
         """
         pass
+
+    def initialize(self):
+        """Call after construction to set up driver and internal flags."""
+        self.coms_active = self.setup_driver()
 
     def command_servos(self, command_dict: dict):
         """
