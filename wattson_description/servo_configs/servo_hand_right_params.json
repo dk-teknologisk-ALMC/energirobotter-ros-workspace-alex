@@ -5,7 +5,7 @@
     },
     "servos": {
         "hand_right_pinky": {
-            "servo_id": 25,
+            "servo_id": 29,
             "dir": -1,
             "gear_ratio": 1,
             "pwm_min": 0,

@@ -3,5 +3,40 @@
         "name": "hand_left",
         "synchronise_speed": false
     },
-    "servos": {}
+    "servos": {
+        "hand_left_middle": {
+            "servo_id": 22,
+            "dir": 1,
+            "gear_ratio": 1,
+            "pwm_min": 0,
+            "pwm_max": 1024,
+            "angle_min": 0,
+            "angle_max": 300,
+            "angle_software_min": 150,
+            "angle_software_max": 180,
+            "angle_speed_max": 200,
+            "default_position": 150,
+            "feedback_enabled": false,
+            "gain_P": 1.0,
+            "gain_I": 0.0,
+            "gain_D": 0.0
+        },
+        "hand_left_index": {
+            "servo_id": 23,
+            "dir": 1,
+            "gear_ratio": 1,
+            "pwm_min": 0,
+            "pwm_max": 1024,
+            "angle_min": 0,
+            "angle_max": 300,
+            "angle_software_min": 150,
+            "angle_software_max": 180,
+            "angle_speed_max": 200,
+            "default_position": 150,
+            "feedback_enabled": false,
+            "gain_P": 1.0,
+            "gain_I": 0.0,
+            "gain_D": 0.0
+        }
+    }
 }
