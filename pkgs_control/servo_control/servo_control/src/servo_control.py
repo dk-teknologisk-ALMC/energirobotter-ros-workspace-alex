@@ -141,19 +141,21 @@ class ServoControl:
 
         return kP + kI + kD
 
-    def limit_speed(self, speed, speed_max):
+    def limit_speed(self, speed, speed_max=None):
         """
         Limits the speed within defined constraints.
 
         Args:
-            speed (float): Desired speed.
+            speed (float): Desired speed. A value of None equals maximum speed.
             speed_max (float): Maximum allowed speed.
 
         Returns:
             float: Clamped speed value.
         """
         # Clamp values between desired min and max speed
-        speed = np.clip(speed, -speed_max, speed_max)
+        if speed_max:
+            speed = np.clip(speed, -speed_max, speed_max)
+
         # Respect each servos individual speed limit
         speed = np.clip(speed, -self.angle_speed_max, self.angle_speed_max)
 
@@ -165,27 +167,28 @@ class ServoControl:
 
         Args:
             angle (float): Target angle.
-            speed_max (float, optional): Maximum allowed speed. Defaults to None.
+            speed_max (float, optional): Maximum allowed speed. Defaults to None (max speed).
 
         Returns:
             tuple: (angle_cmd, pwm_cmd) as integers.
         """
-        if speed_max:
-            t_d = time.time() - self.time_prev
-            self.time_prev = time.time()
+        # Compute speed
+        if speed_max is None:
+            speed_max = self.angle_speed_max
 
-            angle_delta = angle_target - self.angle
-            speed = np.sign(angle_delta) * speed_max if angle_delta != 0 else 0
-            speed = self.limit_speed(speed, speed_max)
-            angle_cmd = self.angle + speed * t_d
+        t_d = time.time() - self.time_prev
+        self.time_prev = time.time()
 
-            # Ensure no overshoot
-            if abs(angle_delta) < abs(speed) * t_d:
-                angle_cmd = angle_target
+        angle_delta = angle_target - self.angle
+        speed = np.sign(angle_delta) * speed_max if angle_delta != 0 else 0
+        speed = self.limit_speed(speed, speed_max)
+        angle_cmd = self.angle + speed * t_d
 
-        else:
+        # Ensure no overshoot
+        if abs(angle_delta) < abs(speed) * t_d:
             angle_cmd = angle_target
 
+        # Enforce limits
         angle_cmd = np.clip(angle_cmd, self.angle_software_min, self.angle_software_max)
 
         if not self.feedback_enabled:
