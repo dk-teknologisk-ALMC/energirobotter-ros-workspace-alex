@@ -2,6 +2,7 @@
 Servo driver/manager of humanoid robot servos, which are servos controlled by a Waveshare driver.
 """
 
+import json
 import threading
 import time
 
@@ -13,10 +14,22 @@ from servo_control.src.servo_control import ServoControl
 PORT = "/dev/ttyUSB0"
 BAUDRATE = 115200
 
+supported_servos = {
+    "ST3215": sms_sts,
+    "SC09": scscl,
+}
+
 
 class DriverWaveshare(DriverServos):
     def __init__(self, config_files, control_frequency):
         super().__init__(config_files)
+
+        self.servo_models = []
+        for config in config_files:
+            with open(config, "r") as file:
+                group_config = json.load(file)
+                servo_model = group_config["group"]["servo_model"]
+                self.servo_models.append(servo_model)
 
         self.port_handler = None
         self.running = True

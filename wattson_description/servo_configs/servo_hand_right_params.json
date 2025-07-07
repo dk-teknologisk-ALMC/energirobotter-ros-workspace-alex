@@ -1,6 +1,7 @@
 {
     "group": {
         "name": "hand_right",
+        "servo_model": "SC09",
         "synchronise_speed": false
     },
     "servos": {
