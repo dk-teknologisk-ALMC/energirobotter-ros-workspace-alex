@@ -296,19 +296,6 @@ class ServoControl:
         """
         return self.gear_zero_position + (value - self.gear_zero_position) * gear_ratio
 
-    def reach_angle_direct(self, angle, speed=None):
-        """
-        Moves the servo to a specific angle directly.
-
-        Args:
-            angle (float): Target angle.
-            speed (float, optional): Speed limit. Defaults to None.
-
-        Returns:
-            tuple: (angle_cmd, pwm_cmd)
-        """
-        return self.compute_command(angle, speed)
-
     def reach_angle(self, t_d, angle, speed=None):
         """
         Moves the servo to a specific angle with controlled motion.
