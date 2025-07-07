@@ -63,18 +63,18 @@ class DriverWaveshare(DriverServos):
 
             if not self.port_handler.openPort():
                 self.logger.error("Failed to open port")
-                return None
+                return False
 
             if not self.port_handler.setBaudRate(BAUDRATE):
                 self.logger.error("Failed to set baud rate")
-                return None
+                return False
 
             self.logger.info("Serial communication successful")
-            return packet_handler
+            return True
 
         except Exception as e:
             self.logger.error(f"Failed to open port: {e}")
-            return None
+            return False
 
     def loop_sync_commands(self, callback_func, frequency=1.0):
         interval = 1.0 / frequency
