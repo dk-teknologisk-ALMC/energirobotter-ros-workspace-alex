@@ -159,8 +159,8 @@ class DriverWaveshare(DriverServos):
                 scs_addparam_result = driver.SyncWritePos(
                     servo.servo_id,
                     pwm,
-                    SCS_MOVING_SPEED := 2000,
-                    SCS_MOVING_ACC := 64,
+                    SERVO_SPEED := servo.pwm_speed_max,
+                    SERVO_ACC := 64,
                 )
 
                 if scs_addparam_result != True:

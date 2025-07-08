@@ -74,6 +74,7 @@ class ServoControl:
         self.gain_D = gain_D
         self.feedback_enabled = feedback_enabled
 
+        self.pwm_speed_max = int(self.angle_speed_max * self.pwm_max / self.angle_max)
         self.gear_zero_position = (angle_max + angle_min) // 2
         self.angle_init = self.default_position
         self.angle = self.angle_init
