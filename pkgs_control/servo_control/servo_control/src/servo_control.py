@@ -80,7 +80,7 @@ class ServoControl:
         self.pwm = self.angle_2_pwm(self.angle)
         self.temperature = 0.0
 
-        self.time_prev = time.time()
+        self.time_prev = None
         self.error_acc = 0.0
         self.error_prev = 0.0
 
@@ -175,6 +175,9 @@ class ServoControl:
         # Compute speed
         if speed_max is None:
             speed_max = self.angle_speed_max
+
+        if self.time_prev == None:
+            self.time_prev = time.time()
 
         t_d = time.time() - self.time_prev
         self.time_prev = time.time()
