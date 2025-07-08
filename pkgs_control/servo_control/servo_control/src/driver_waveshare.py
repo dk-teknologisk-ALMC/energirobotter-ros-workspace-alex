@@ -168,7 +168,7 @@ class DriverWaveshare(DriverServos):
                         f"groupSyncWrite addparam failed, servo ID: {servo.servo_id}"
                     )
 
-    def map_finger_to_servo(servo: ServoControl, angle_cmd):
+    def map_finger_to_servo(self, servo: ServoControl, angle_cmd):
         # Function specific to finger servos, that takes an angle between 0-90 and converts to correct range
 
         angle_mapped = interval_map(
