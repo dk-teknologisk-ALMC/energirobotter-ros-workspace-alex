@@ -76,8 +76,7 @@ class ServoControl:
 
         self.pwm_speed_max = int(self.angle_speed_max * self.pwm_max / self.angle_max)
         self.gear_zero_position = (angle_max + angle_min) // 2
-        self.angle_init = self.default_position
-        self.angle = self.angle_init
+        self.angle = self.default_position
         self.pwm = self.angle_2_pwm(self.angle)
         self.temperature = 0.0
 
@@ -325,4 +324,4 @@ class ServoControl:
         Returns:
             tuple: (angle_cmd, pwm_cmd)
         """
-        return self.reach_angle(t_d, self.angle_init)
+        return self.reach_angle(t_d, self.default_position)
