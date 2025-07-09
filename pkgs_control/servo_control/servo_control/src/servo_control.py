@@ -259,7 +259,7 @@ class ServoControl:
         Returns:
             int: Corresponding PWM value.
         """
-        return int(
+        return round(
             interval_map(
                 angle, self.angle_min, self.angle_max, self.pwm_min, self.pwm_max, clamp
             )
@@ -276,7 +276,7 @@ class ServoControl:
         Returns:
             int: Corresponding angle.
         """
-        return int(
+        return round(
             interval_map(
                 pwm, self.pwm_min, self.pwm_max, self.angle_min, self.angle_max, clamp
             )
