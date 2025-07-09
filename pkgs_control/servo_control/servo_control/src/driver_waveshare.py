@@ -24,8 +24,6 @@ class DriverWaveshare(DriverServos):
     def __init__(self, config_files, control_frequency, debug=False):
         super().__init__(config_files)
 
-        self.debug = debug
-
         self.servo_models = []
         for config in config_files:
             with open(config, "r") as file:
@@ -152,11 +150,10 @@ class DriverWaveshare(DriverServos):
 
             scs_comm_result = driver.groupSyncRead.txRxPacket()
 
-            if self.debug:
-                if scs_comm_result != scservo_def.COMM_SUCCESS:
-                    self.logger.error(
-                        f"Communication error while reading: {driver.getTxRxResult(scs_comm_result)}"
-                    )
+            if scs_comm_result != scservo_def.COMM_SUCCESS:
+                self.logger.debug(
+                    f"Communication error while reading: {driver.getTxRxResult(scs_comm_result)}"
+                )
 
     def _sync_commands_write(self):
 
@@ -168,11 +165,10 @@ class DriverWaveshare(DriverServos):
                 scs_comm_result = driver.groupSyncWrite.txPacket()
                 driver.groupSyncWrite.clearParam()
 
-                if self.debug:
-                    if scs_comm_result != scservo_def.COMM_SUCCESS:
-                        self.logger.error(
-                            f"Communication error while writing: {driver.getTxRxResult(scs_comm_result)}"
-                        )
+                if scs_comm_result != scservo_def.COMM_SUCCESS:
+                    self.logger.debug(
+                        f"Communication error while writing: {driver.getTxRxResult(scs_comm_result)}"
+                    )
 
     def map_finger_to_servo(self, servo: ServoControl, angle_cmd):
         # Function specific to finger servos, that takes an angle between 0-90 and converts to correct range
