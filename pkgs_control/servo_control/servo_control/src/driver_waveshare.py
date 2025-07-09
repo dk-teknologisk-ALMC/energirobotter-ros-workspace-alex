@@ -21,8 +21,10 @@ supported_servos = {
 
 
 class DriverWaveshare(DriverServos):
-    def __init__(self, config_files, control_frequency):
+    def __init__(self, config_files, control_frequency, debug=False):
         super().__init__(config_files)
+
+        self.debug = debug
 
         self.servo_models = []
         for config in config_files:
@@ -37,14 +39,14 @@ class DriverWaveshare(DriverServos):
         self.lock = threading.Lock()
 
         self.loop_thread_read = threading.Thread(
-            target=self.loop_sync_commands,
-            args=(self.sync_commands_read, 1.0),
+            target=self._loop_sync_commands,
+            args=(self._sync_commands_read, 1.0),
             daemon=True,
         )
 
         self.loop_thread_write = threading.Thread(
-            target=self.loop_sync_commands,
-            args=(self.sync_commands_write, control_frequency),
+            target=self._loop_sync_commands,
+            args=(self._sync_commands_write, control_frequency),
             daemon=True,
         )
 
@@ -88,50 +90,6 @@ class DriverWaveshare(DriverServos):
             self.logger.error(f"Failed to open port: {e}")
             return False
 
-    def loop_sync_commands(self, callback_func, frequency=1.0):
-        interval = 1.0 / frequency
-
-        while self.running:
-            start = time.time()
-            callback_func()  # call the passed-in function
-            elapsed = time.time() - start
-            time.sleep(max(0, interval - elapsed))
-
-    def sync_commands_read(self):
-
-        if not "ST3215" in self.driver_objects:
-            return
-
-        driver = self.driver_objects["ST3215"]
-
-        with self.lock:
-
-            # Sync read
-            driver.groupSyncRead.clearParam()
-
-            for servo in self.servos.values():
-                scs_addparam_result = driver.groupSyncRead.addParam(servo.servo_id)
-
-            scs_comm_result = driver.groupSyncRead.txRxPacket()
-            if scs_comm_result != scservo_def.COMM_SUCCESS:
-                self.logger.error(
-                    f"Communication error while reading: {driver.getTxRxResult(scs_comm_result)}"
-                )
-
-    def sync_commands_write(self):
-
-        with self.lock:
-
-            for driver in self.driver_objects.values():
-
-                # Sync write
-                scs_comm_result = driver.groupSyncWrite.txPacket()
-                if scs_comm_result != scservo_def.COMM_SUCCESS:
-                    self.logger.error(
-                        f"Communication error while writing: {driver.getTxRxResult(scs_comm_result)}"
-                    )
-                driver.groupSyncWrite.clearParam()
-
     def read_feedback(self, servo: ServoControl):
 
         if not "ST3215" in self.driver_objects:
@@ -167,6 +125,54 @@ class DriverWaveshare(DriverServos):
                     self.logger.warning(
                         f"groupSyncWrite addparam failed, servo ID: {servo.servo_id}"
                     )
+
+    def _loop_sync_commands(self, callback_func, frequency=1.0):
+        interval = 1.0 / frequency
+
+        while self.running:
+            start = time.time()
+            callback_func()  # call the passed-in function
+            elapsed = time.time() - start
+            time.sleep(max(0, interval - elapsed))
+
+    def _sync_commands_read(self):
+
+        if not "ST3215" in self.driver_objects:
+            return
+
+        driver = self.driver_objects["ST3215"]
+
+        with self.lock:
+
+            # Sync read
+            driver.groupSyncRead.clearParam()
+
+            for servo in self.servos.values():
+                scs_addparam_result = driver.groupSyncRead.addParam(servo.servo_id)
+
+            scs_comm_result = driver.groupSyncRead.txRxPacket()
+
+            if self.debug:
+                if scs_comm_result != scservo_def.COMM_SUCCESS:
+                    self.logger.error(
+                        f"Communication error while reading: {driver.getTxRxResult(scs_comm_result)}"
+                    )
+
+    def _sync_commands_write(self):
+
+        with self.lock:
+
+            for driver in self.driver_objects.values():
+
+                # Sync write
+                scs_comm_result = driver.groupSyncWrite.txPacket()
+                driver.groupSyncWrite.clearParam()
+
+                if self.debug:
+                    if scs_comm_result != scservo_def.COMM_SUCCESS:
+                        self.logger.error(
+                            f"Communication error while writing: {driver.getTxRxResult(scs_comm_result)}"
+                        )
 
     def map_finger_to_servo(self, servo: ServoControl, angle_cmd):
         # Function specific to finger servos, that takes an angle between 0-90 and converts to correct range

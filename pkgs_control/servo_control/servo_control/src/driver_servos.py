@@ -109,17 +109,6 @@ class DriverServos(ABC):
         pass
 
     @abstractmethod
-    def write_command(self, servo: ServoControl, pwm):
-        """
-        Abstract method to send a command to a servo.
-
-        Args:
-            servo (ServoControl): Servo object containing servo attributes.
-            pwm (float): PWM value to command the servo.
-        """
-        pass
-
-    @abstractmethod
     def read_feedback(self, servo: ServoControl):
         """
         Abstract method to read feedback from the servos.
@@ -127,6 +116,17 @@ class DriverServos(ABC):
 
         Args:
             servo (ServoControl): Servo object containing servo attributes.
+        """
+        pass
+
+    @abstractmethod
+    def write_command(self, servo: ServoControl, pwm):
+        """
+        Abstract method to send a command to a servo.
+
+        Args:
+            servo (ServoControl): Servo object containing servo attributes.
+            pwm (float): PWM value to command the servo.
         """
         pass
 
