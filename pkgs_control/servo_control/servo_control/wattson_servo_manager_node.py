@@ -56,9 +56,9 @@ class ServoManagerNode(Node):
         ]
         self.servo_driver = DriverWaveshare(json_files, self.control_frequency)
         self.servo_driver.initialize()
-        self.servo_commands = self.servo_driver.get_default_servo_commands()
 
         # Node variables
+        self.servo_commands = {}
         self.servo_commands_arms = {}
         self.servo_commands_hands = {}
 
@@ -91,6 +91,9 @@ class ServoManagerNode(Node):
         # Update servos
         self.servo_driver.update_feedback()
         self.servo_driver.command_servos(self.servo_commands)
+
+        self.servo_commands_arms = {}
+        self.servo_commands_hands = {}
 
         # DEBUG
         temperatures = self.servo_driver.get_servo_temperatures()
