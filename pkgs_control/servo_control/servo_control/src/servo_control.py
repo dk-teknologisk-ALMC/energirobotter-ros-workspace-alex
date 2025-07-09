@@ -74,10 +74,11 @@ class ServoControl:
         self.gain_D = gain_D
         self.feedback_enabled = feedback_enabled
 
-        self.pwm_speed_max = int(self.angle_speed_max * self.pwm_max / self.angle_max)
         self.gear_zero_position = (angle_max + angle_min) // 2
         self.angle = self.default_position
+        self.angle_speed = 0.0
         self.pwm = self.angle_2_pwm(self.angle)
+        self.pwm_speed = self.angle_2_pwm(self.angle_speed, clamp=False)
         self.temperature = 0.0
 
         self.time_prev = None
@@ -183,20 +184,23 @@ class ServoControl:
         self.time_prev = time.time()
 
         angle_delta = angle_target - self.angle
-        speed = np.sign(angle_delta) * speed_max if angle_delta != 0 else 0
-        speed = self.limit_speed(speed, speed_max)
-        angle_cmd = self.angle + speed * t_d
+        angle_vel = np.sign(angle_delta) * speed_max if angle_delta != 0 else 0
+        angle_vel = self.limit_speed(angle_vel, speed_max)
+        angle_cmd = self.angle + angle_vel * t_d
 
         # Ensure no overshoot
-        if abs(angle_delta) < abs(speed) * t_d:
+        if abs(angle_delta) < abs(angle_vel) * t_d:
             angle_cmd = angle_target
 
         # Enforce limits
         angle_cmd = np.clip(angle_cmd, self.angle_software_min, self.angle_software_max)
 
+        # Set direct feedback if no sensor data available
         if not self.feedback_enabled:
             self.angle = angle_cmd
+            self.angle_speed = abs(angle_vel)
             self.pwm = self.angle_2_pwm(angle_cmd)
+            self.pwm_speed = self.angle_2_pwm(self.angle_speed, clamp=False)
 
         # Flip angle to send if direction is flipped
         if self.dir < 0:
@@ -244,35 +248,37 @@ class ServoControl:
 
         return self.compute_command(angle_cmd)
 
-    def angle_2_pwm(self, angle):
+    def angle_2_pwm(self, angle, clamp=True):
         """
         Converts an angle to a corresponding PWM value.
 
         Args:
             angle (float): Servo angle.
+            clamp (bool): clamp x within [x0, x1] to avoid out-of-bounds mapping. Default is True.
 
         Returns:
             int: Corresponding PWM value.
         """
         return int(
             interval_map(
-                angle, self.angle_min, self.angle_max, self.pwm_min, self.pwm_max
+                angle, self.angle_min, self.angle_max, self.pwm_min, self.pwm_max, clamp
             )
         )
 
-    def pwm_2_angle(self, pwm):
+    def pwm_2_angle(self, pwm, clamp=True):
         """
         Converts a PWM value to its corresponding angle.
 
         Args:
             pwm (int): PWM signal.
+            clamp (bool): clamp x within [x0, x1] to avoid out-of-bounds mapping. Default is True.
 
         Returns:
             int: Corresponding angle.
         """
         return int(
             interval_map(
-                pwm, self.pwm_min, self.pwm_max, self.angle_min, self.angle_max
+                pwm, self.pwm_min, self.pwm_max, self.angle_min, self.angle_max, clamp
             )
         )
 
