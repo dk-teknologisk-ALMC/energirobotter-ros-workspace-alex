@@ -34,8 +34,8 @@ try:
 
     DriverClass = supported_servos[SERVO_MODEL]
     packet_handler = DriverClass(port_handler)
-
     print("Serial communication succesful")
+
 except:
     print("Failed to open port, exiting...")
     exit()
