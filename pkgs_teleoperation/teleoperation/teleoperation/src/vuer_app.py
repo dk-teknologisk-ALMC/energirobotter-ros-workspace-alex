@@ -25,7 +25,7 @@ class VuerApp(VRInterfaceApp):
         self.stereo_enabled = stereo_enabled
         self.ngrok_enabled = ngrok_enabled
 
-        vuer_host = "localhost"
+        vuer_host = "0.0.0.0"
         vuer_port = 8012
 
         # URIs
