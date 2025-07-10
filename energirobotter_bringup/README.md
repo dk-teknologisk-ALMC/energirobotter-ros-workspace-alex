@@ -12,9 +12,13 @@ rosdep install --from-paths src -y --ignore-src
 ```
 
 - [Energirobotter Bringup](#energirobotter-bringup)
-  - [Teleoperation Vuer](#teleoperation-vuer)
+  - [Slider Control](#slider-control)
+    - [Launch File](#launch-file)
     - [Setup Robot](#setup-robot)
       - [Enable Servo Serial Forwarding](#enable-servo-serial-forwarding)
+  - [Teleoperation Vuer](#teleoperation-vuer)
+    - [Setup Robot](#setup-robot-1)
+      - [Enable Servo Serial Forwarding](#enable-servo-serial-forwarding-1)
     - [Setup Visualisation](#setup-visualisation)
     - [Setup VR Headset](#setup-vr-headset)
       - [Wireless](#wireless)
@@ -25,9 +29,45 @@ rosdep install --from-paths src -y --ignore-src
     - [Setup VR Headset](#setup-vr-headset-1)
       - [Connected to computer with Unity](#connected-to-computer-with-unity)
       - [Only VR headset](#only-vr-headset)
-    - [Setup Robot](#setup-robot-1)
+    - [Setup Robot](#setup-robot-2)
     - [Calibrate and Launch](#calibrate-and-launch-1)
   - [Face Following (Deprecated)](#face-following-deprecated)
+
+
+## Slider Control
+
+Creates panel with sliders for each joint, to test in a more controlled way.
+
+
+### Launch File
+On computer with display:
+```
+ros2 launch energirobotter_bringup slider_control.launch.py description_package:=wattson_description
+```
+
+### Setup Robot
+
+1. Turn on the robot
+2. From terminal on PC SSH into the robot (Elrik example):
+   ```
+   ssh elrik@192.168.1.105
+   ```
+4. Start `servos.launch.py` in a terminal on the robot:
+> As soon as the `servos.launch.py` is running, it is able to move!
+   ```
+   cd energinet/
+   shumble
+   sw
+   ros2 launch energirobotter_bringup servos.launch.py
+   ```
+
+
+#### Enable Servo Serial Forwarding
+
+1. On your phone (or computer that does not need to communicate to the robot), connect to the `ESP32_DEV` Wi-Fi network (password is `12345678`)
+2. In browser, go to `192.168.4.1`
+3. Click button `Start Serial Forwarding` - OBS! Make sure nothing is sending commands to the robot yet
+4. Click botton `Stop Serial Forwarding` but don't click `OK`, it's now ready as a stop button if needed
 
 
 ## Teleoperation Vuer
@@ -62,7 +102,7 @@ The camera can only be served in the headset over a secure connection, for this 
 
 #### Enable Servo Serial Forwarding
 
-1. On your phone, connect to the `ESP32_DEV` Wi-Fi network (password is `12345678`)
+1. On your phone (or computer that does not need to communicate to the robot), connect to the `ESP32_DEV` Wi-Fi network (password is `12345678`)
 2. In browser, go to `192.168.4.1`
 3. Click button `Start Serial Forwarding` - OBS! Make sure nothing is sending commands to the robot yet
 4. Click botton `Stop Serial Forwarding` but don't click `OK`, it's now ready as a stop button if needed
