@@ -1,6 +1,7 @@
 {
     "group": {
         "name": "arm_right",
+        "servo_model": "ST3215",
         "synchronise_speed": true
     },
     "servos": {

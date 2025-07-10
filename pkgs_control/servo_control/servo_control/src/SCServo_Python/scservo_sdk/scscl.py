@@ -58,7 +58,7 @@ class scscl(protocol_packet_handler):
         protocol_packet_handler.__init__(self, portHandler, 1)
         self.groupSyncWrite = GroupSyncWrite(self, SCSCL_GOAL_POSITION_L, 6)
 
-    def WritePos(self, scs_id, position, time, speed):
+    def WritePos(self, scs_id, position, speed, time):
         txpacket = [
             self.scs_lobyte(position),
             self.scs_hibyte(position),
@@ -98,7 +98,7 @@ class scscl(protocol_packet_handler):
         moving, scs_comm_result, scs_error = self.read1ByteTxRx(scs_id, SCSCL_MOVING)
         return moving, scs_comm_result, scs_error
 
-    def SyncWritePos(self, scs_id, position, time, speed):
+    def SyncWritePos(self, scs_id, position, speed, time):
         txpacket = [
             self.scs_lobyte(position),
             self.scs_hibyte(position),
@@ -109,7 +109,7 @@ class scscl(protocol_packet_handler):
         ]
         return self.groupSyncWrite.addParam(scs_id, txpacket)
 
-    def RegWritePos(self, scs_id, position, time, speed):
+    def RegWritePos(self, scs_id, position, speed, time):
         txpacket = [
             self.scs_lobyte(position),
             self.scs_hibyte(position),

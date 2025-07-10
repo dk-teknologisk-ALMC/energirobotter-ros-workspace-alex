@@ -64,7 +64,7 @@ class sms_sts(protocol_packet_handler):
         self.groupSyncRead = GroupSyncRead(self, SMS_STS_PRESENT_POSITION_L, 15)
         self.groupSyncWrite = GroupSyncWrite(self, SMS_STS_ACC, 7)
 
-    def WritePosEx(self, scs_id, position, speed, acc):
+    def WritePos(self, scs_id, position, speed, acc):
         txpacket = [
             acc,
             self.scs_lobyte(position),
@@ -138,7 +138,7 @@ class sms_sts(protocol_packet_handler):
         else:
             return None
 
-    def SyncWritePosEx(self, scs_id, position, speed, acc):
+    def SyncWritePos(self, scs_id, position, speed, acc):
         txpacket = [
             acc,
             self.scs_lobyte(position),
@@ -150,7 +150,7 @@ class sms_sts(protocol_packet_handler):
         ]
         return self.groupSyncWrite.addParam(scs_id, txpacket)
 
-    def RegWritePosEx(self, scs_id, position, speed, acc):
+    def RegWritePos(self, scs_id, position, speed, acc):
         txpacket = [
             acc,
             self.scs_lobyte(position),

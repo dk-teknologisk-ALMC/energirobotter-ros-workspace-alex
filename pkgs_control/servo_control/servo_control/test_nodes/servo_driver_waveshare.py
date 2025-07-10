@@ -1,7 +1,7 @@
 import rclpy
 from rclpy.node import Node
 
-from ..src.SCServo_Python.scservo_sdk import PortHandler, sms_sts, scservo_def
+from ..src.SCServo_Python.scservo_sdk import PortHandler, sms_sts
 
 from energirobotter_interfaces.msg import ServoCommand
 
@@ -66,7 +66,7 @@ class ServoDriverWaveshare(Node):
             self.get_logger().info("Registered servo with id: " + str(msg.servo_id))
             self.known_servo_ids.append(msg.servo_id)
 
-        scs_comm_result, scs_error = self.packet_handler.WritePosEx(
+        scs_comm_result, scs_error = self.packet_handler.WritePos(
             msg.servo_id, msg.pwm, SCS_MOVING_SPEED := 1000, SCS_MOVING_ACC := 255
         )
 

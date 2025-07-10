@@ -1,5 +1,5 @@
 """
-Servo driver/manager of Elrik fingers of the right hand, which are servos controlled by a PCA9685. 
+Servo driver/manager of Elrik fingers of the right hand, which are servos controlled by a PCA9685.
 """
 
 from adafruit_pca9685 import PCA9685
@@ -17,12 +17,12 @@ class ElrikDriverHandRight(ElrikDriverHand):
 
         try:
             i2c_right = busio.I2C(board.SCL, board.SDA)
-            pca_right = PCA9685(i2c_right, address=0x40)
-            pca_right.frequency = 50
+            self.driver_object = PCA9685(i2c_right, address=0x40)
+            self.driver_object.frequency = 50
 
             self.logger.info("right hand I2C communication succesful")
-            return pca_right
+            return True
 
         except Exception as e:
             self.logger.error(f"Failed to open right hand port: {e}")
-            return None
+            return False

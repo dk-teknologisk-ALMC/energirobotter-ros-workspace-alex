@@ -10,14 +10,18 @@
 import sys
 import os
 
-if os.name == 'nt':
+if os.name == "nt":
     import msvcrt
+
     def getch():
         return msvcrt.getch().decode()
+
 else:
     import sys, tty, termios
+
     fd = sys.stdin.fileno()
     old_settings = termios.tcgetattr(fd)
+
     def getch():
         try:
             tty.setraw(sys.stdin.fileno())
@@ -26,20 +30,25 @@ else:
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
         return ch
 
-sys.path.append("..")
-from scservo_sdk import *                      # Uses SC Servo SDK library
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from scservo_sdk import *  # Uses SC Servo SDK library
+
 
 # Default setting
-BAUDRATE                    = 1000000           # SC Servo default baudrate : 1000000
-DEVICENAME                  = '/dev/ttyUSB0'    # Check which port is being used on your controller
-                                                # ex) Windows: "COM1"   Linux: "/dev/ttyUSB0" Mac: "/dev/tty.usbserial-*"
+BAUDRATE = 115200  # SC Servo default baudrate : 1000000
+DEVICENAME = "/dev/ttyUSB0"  # Check which port is being used on your controller
+# ex) Windows: "COM1"   Linux: "/dev/ttyUSB0" Mac: "/dev/tty.usbserial-*"
 
-SCS_MINIMUM_POSITION_VALUE  = 10                # SC Servo will rotate between this value
-SCS_MAXIMUM_POSITION_VALUE  = 1000              
-SCS_MOVING_SPEED            = 2400              # SC Servo moving speed
+SCS_MINIMUM_POSITION_VALUE = 700  # SC Servo will rotate between this value
+SCS_MAXIMUM_POSITION_VALUE = 800
+SCS_MOVING_SPEED = 100  # SC Servo moving speed
 
 index = 0
-scs_goal_position = [SCS_MINIMUM_POSITION_VALUE, SCS_MAXIMUM_POSITION_VALUE]         # Goal position
+scs_goal_position = [
+    SCS_MINIMUM_POSITION_VALUE,
+    SCS_MAXIMUM_POSITION_VALUE,
+]  # Goal position
 
 
 # Initialize PortHandler instance
@@ -72,12 +81,14 @@ else:
 
 while 1:
     print("Press any key to continue! (or press ESC to quit!)")
-    if getch() == chr(0x1b):
+    if getch() == chr(0x1B):
         break
 
-    for scs_id in range(1, 11):
+    for scs_id in range(22, 24):
         # Add SC Servo#1~10 goal position\moving speed\moving accc value to the Syncwrite parameter storage
-        scs_addparam_result = packetHandler.SyncWritePos(scs_id, scs_goal_position[index], 0, SCS_MOVING_SPEED)
+        scs_addparam_result = packetHandler.SyncWritePos(
+            scs_id, scs_goal_position[index], 0, SCS_MOVING_SPEED
+        )
         if scs_addparam_result != True:
             print("[ID:%03d] groupSyncWrite addparam failed" % scs_id)
 
