@@ -279,7 +279,7 @@ class DriverServos(ABC):
         )
 
         if not longest_distance or longest_distance < self.distance_threshold_min:
-            speeds_allowed = {name: self.speed_min for name in servo_dict.keys()}
+            speeds_allowed.update({name: self.speed_min for name in servos_affected})
             return speeds_allowed
 
         # Compute allowed speed based on distance to travel
