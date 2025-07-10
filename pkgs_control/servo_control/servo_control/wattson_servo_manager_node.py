@@ -53,6 +53,8 @@ class ServoManagerNode(Node):
         json_files = [
             f"{config_folder_path}/servo_arm_left_params.json",
             f"{config_folder_path}/servo_arm_right_params.json",
+            # f"{config_folder_path}/servo_hand_left_params.json",
+            # f"{config_folder_path}/servo_hand_right_params.json",
         ]
         self.servo_driver = DriverWaveshare(json_files, self.control_frequency)
         self.servo_driver.initialize()
