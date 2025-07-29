@@ -52,9 +52,12 @@ The `servo_manager_node` loads `.json` files that describes all parameters for e
 
 
 
-### Waveshare Servo Notes
+### Waveshare ST3215 Servo Notes
 
-Waveshare servos PWM is represented by a 12-bit number, so in base 10 it is `0 - 4095`. Tests showed that the actual range accepted by the driver was `0 - 4094`.
+These servos are used in the arms.
+They are controlled using the `sms_sts` class in the `SCServo_Python` module.
+
+Waveshare ST3215 servos PWM is represented by a 12-bit number, so in base 10 it is `0 - 4095`. Tests showed that the actual range accepted by the driver was `0 - 4094`.
 
 When sending a direct command to a Waveshare servo in code, one can set `SCS_MOVING_SPEED` and `SCS_MOVING_ACC`. In the contorl code in this repo, both are set to a constant value (typically max), as the speed and acceleration are controlled through sending specific positions. But for reference and tests, the maximum value for `SCS_MOVING_SPEED` seems to be `4000` (unknown unit) and for `SCS_MOVING_ACC` it is `255` (will crash the program if it goes beyond). Setting `SCS_MOVING_SPEED` to `0` will set it to the maximum value.
 
@@ -106,4 +109,37 @@ The **default position** is the servo's starting/resting position after power-on
 > then set the default position to `135°`, not `180°`.
 
 ---
+
+#### Tuning
+
+Use the `command_test_node` in the `servo_control` package to test different angles of a servo using the control pipeline. Launch `servos.launch.py` on the computer connected to the servo driver board: 
+
+```
+ros2 launch energirobotter_bringup servos.launch.py
+```
+
+Run the test node on the same subnet to send a one-time command:
+```
+ros2 run servo_control command_test_node --ros-args -p topic_name:=/joint_states -p joint_name:=joint_left_wrist_pitch -p angle:=20
+```
+
+> When a servo’s direction is flipped (i.e., `dir = -1`), take extra care when setting the `angle_software_min` and `angle_software_max` attributes. The effective angle range may be reversed compared to non-flipped servos — what is `angle_software_min` on a standard servo might correspond to `angle_software_max` on a flipped one, and vice versa.  `angle_software_min` is always less than `angle_software_max`.
+
+### Waveshare SC09 Servo Notes
+
+These servos are used in the hands.
+They are controlled using the `scscl` class in the `SCServo_Python` module.
+
+These servos have a middle-point just like the ST3115 servos, but it is not configurable. Make sure they are installed whith this in mind. 
+
+The hand servos are scaled to a `0 - 90` degree range. Meaning sending an angle command of `0` will result in `angle_software_min`, and `90` will be `angle_software_max`. For tuning it can be nice to turn this off, do this by launching `servos.launch.py` with the `finger_mapping_enabled` parameter set to false:
+
+```
+ros2 launch energirobotter_bringup servos.launch.py finger_mapping_enabled:=false
+```
+
+The hand servos operate on a seperate joint state topic that the rest of the robot (as they don't use IK), remember to run the `command_test_node` with the correct topic name:
+```
+ros2 run servo_control command_test_node --ros-args -p topic_name:=/joint_states_hands -p joint_name:=hand_left_index -p angle:=20
+```
 
