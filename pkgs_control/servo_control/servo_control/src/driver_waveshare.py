@@ -175,7 +175,7 @@ class DriverWaveshare(DriverServos):
 
         angle_mapped = interval_map(
             angle_cmd,
-            0,
+            10,
             90,
             servo.angle_software_min - servo.default_position,
             servo.angle_software_max - servo.default_position,
