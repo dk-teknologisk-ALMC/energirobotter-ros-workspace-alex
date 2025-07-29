@@ -6,10 +6,10 @@ It receives tracking data from the VR headset, and forwards a WebRTC camera stre
 import aiohttp
 from aiohttp.web_response import Response
 import asyncio
-
 from cgi import parse_header
 from multiprocessing import Process
 import ngrok
+import numpy as np
 import traceback
 from vuer import Vuer, VuerSession
 from vuer.schemas import DefaultScene, Hands, WebRTCVideoPlane, WebRTCStereoVideoPlane
@@ -25,7 +25,7 @@ class VuerApp(VRInterfaceApp):
         self.stereo_enabled = stereo_enabled
         self.ngrok_enabled = ngrok_enabled
 
-        vuer_host = "localhost"
+        vuer_host = "0.0.0.0"
         vuer_port = 8012
 
         # URIs
@@ -35,7 +35,11 @@ class VuerApp(VRInterfaceApp):
 
         # Establish ngrok connectivity
         if ngrok_enabled:
-            self.ngrok_listener = ngrok.forward(vuer_port, authtoken_from_env=True)
+            self.ngrok_listener = ngrok.forward(
+                vuer_port,
+                domain="gladly-destined-lacewing.ngrok-free.app",
+                authtoken_from_env=True,
+            )
             self.logger.info("----------------------------------------")
             self.logger.info(f"Connect to URL in headset: {self.ngrok_listener.url()}")
             self.logger.info("----------------------------------------")
@@ -48,7 +52,14 @@ class VuerApp(VRInterfaceApp):
 
         # Initialize the Vuer app
         self.app_vuer = Vuer(
-            host=vuer_host, port=vuer_port, free_port=True, static_root="."
+            host=vuer_host,
+            port=vuer_port,
+            free_port=True,
+            static_root=".",
+            queries=dict(
+                grid=False,
+                collapseMenu=True,
+            ),
         )
         self.app_vuer.add_handler("CAMERA_MOVE")(self.on_camera_move)
         self.app_vuer.add_handler("HAND_MOVE")(self.on_hand_move)
@@ -155,17 +166,15 @@ class VuerApp(VRInterfaceApp):
                 WebRTCStereoVideoPlane if self.stereo_enabled else WebRTCVideoPlane
             )
 
-            video_plane = VideoPlaneClass(
+            session.upsert @ VideoPlaneClass(
                 src=stream_src,
                 key="video-quad",
-                height=1,
+                height=1.5,
                 aspect=16 / 9,
                 fixed=True,
-                position=[0, 1.5, -1.5],
+                position=[0, 1.0, -1.5],
+                rotation=[np.deg2rad(-20), 0, 0],
             )
-
-            # Set session again with video_plane
-            session.set @ DefaultScene(video_plane, frameloop="always")
 
         # Add hand tracking
         session.upsert @ Hands(
