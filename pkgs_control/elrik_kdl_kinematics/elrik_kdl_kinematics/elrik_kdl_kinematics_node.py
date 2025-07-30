@@ -25,25 +25,25 @@ class ElrikKdlKinematics(Node):
         self.end_effectors = [
             "link_left_hand",
             "link_right_hand",
-            "link_head_roll",
+            # "link_head_roll",
         ]
 
         self.chain_names = {
             self.end_effectors[0]: "left",
             self.end_effectors[1]: "right",
-            self.end_effectors[2]: "head",
+            # self.end_effectors[2]: "head",
         }
 
         self.locked_joints = {
             self.end_effectors[0]: {5: 0.0},
             self.end_effectors[1]: {},
-            self.end_effectors[2]: {},
+            # self.end_effectors[2]: {},
         }
 
         self.end_effector_callback_subs = {
             self.end_effectors[0]: self.callback_target_pos_left,
             self.end_effectors[1]: self.callback_target_pos_right,
-            self.end_effectors[2]: self.callback_target_pos_head,
+            # self.end_effectors[2]: self.callback_target_pos_head,
         }
 
         self.target_pose = {
@@ -53,9 +53,9 @@ class ElrikKdlKinematics(Node):
             self.end_effectors[1]: np.array(
                 [[1, 0, 0, 0.5], [0, 1, 0, 0.5], [0, 0, 1, 0.5], [0, 0, 0, 1]]
             ),
-            self.end_effectors[2]: np.array(
-                [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
-            ),
+            # self.end_effectors[2]: np.array(
+            #     [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+            # ),
         }
 
         self.q_init = {}
@@ -113,16 +113,16 @@ class ElrikKdlKinematics(Node):
 
         for end_effector in self.end_effectors:
 
-            if end_effector != self.end_effectors[2]:  # Skip head
-                error, q_solution = inverse_kinematics(
-                    self.ik_solver[end_effector],
-                    q0=self.q_init[end_effector],
-                    target_pose=self.target_pose[end_effector],
-                    nb_joints=self.chain[end_effector].getNrOfJoints(),
-                    locked_joints=self.locked_joints[end_effector],
-                )
-            else:
-                q_solution = self.q_init[end_effector]
+            # if end_effector != self.end_effectors[2]:  # Skip head
+            error, q_solution = inverse_kinematics(
+                self.ik_solver[end_effector],
+                q0=self.q_init[end_effector],
+                target_pose=self.target_pose[end_effector],
+                nb_joints=self.chain[end_effector].getNrOfJoints(),
+                locked_joints=self.locked_joints[end_effector],
+            )
+            # else:
+            #     q_solution = self.q_init[end_effector]
 
             names.extend(self.get_chain_joints_name(self.chain[end_effector]))
             positions.extend([float(pos) for pos in q_solution])
