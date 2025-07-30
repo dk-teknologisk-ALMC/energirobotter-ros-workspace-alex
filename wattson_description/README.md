@@ -6,11 +6,54 @@ Robot URFD description of Wattson.
 
 The URDF file and meshes are generated/exported from Blender 3.3, using the [Phobos addon](https://github.com/dfki-ric/phobos) (see [video guide](https://www.youtube.com/watch?v=JGPyNxzVlYA&t)). 
 
-In the generated URDF, change all relative paths `../` with `package://wattson_description/`.
+Here's a quick rundown:
 
-If simulating physics, add a `<dynamics damping="1.0" friction="1.0"/>` tag to all joints.
+1. **Prepare the robot model in Blender**  
+   Start by cleaning up the assembly: remove unnecessary parts such as screws and bolts — only visually significant components of the robot links are needed. Optionally, you can join parts that belong to the same link to simplify the model. Position the robot so that:  
+   - The torso origin is placed at the world origin (`0, 0, 0`)  
+   - The robot stands upright  
+   - The robot faces the positive Y-axis  
 
-As a shortcut, run the `fetch_phobos_urdf.py` script in the `utils/` folder, to fetch the URDF generated from Phobos and change the needed lines. Change the paths in the `source_file` and `destination_file` variables. 
+2. **Set visual properties**  
+   Select all parts of the robot and set their **Phobostype** to `Visual`. Define geometry as `mesh`. 
+
+3. **Create collision geometry**  
+   Create collision objects as in the video with primitive types. 
+
+4. **Define links and align them**  
+   Create a link for each part. Align each link so its Z-axis corresponds to the intended joint rotation axis. When rotating around the Z-axis:  
+   - **Roll** is positive when moving away from the robot’s body  
+   - **Pitch** is positive when moving in front of the robot  
+   - **Yaw** is positive when turning away from the robot (as if the front face is turning outward)  
+   
+   Use the **right-hand rule** to ensure the positive rotation around each link’s Z-axis matches these conventions.
+
+5. **Name the robot model**  
+   Assign a name to the robot — this will set the root-link.
+
+6. **Define joints**  
+   Select all links and use the *Define Joints* function. Set the joint type to `Revolute`.
+
+7. **Name joints**  
+   Name each joint to match the corresponding servo joint names from the servo configuration file.
+
+8. **Export the model**  
+   Set the export path to `//`. In the export settings, enable:  
+   - `Export Textures`  
+   - `URDF`  
+   - `STL`  
+   
+   In the URDF export tab:  
+   - Set mesh type to `STL`  
+   - Use **relative file paths**  
+   Finally, click **Export Model**.
+
+This package has a `fetch_phobos_urdf.py` script in the `utils/` folder, to fetch the URDF generated from Phobos and change the needed lines. 
+Change the paths in the `source_file` and `destination_file` variables. For example, all relative paths `../` need to be changed with `package://wattson_description/`.
+
+Manually copy the mesh files from the export folder to the `meshes/stl/` folder in the description package.
+
+
 
 
 ## Visualise URDF
