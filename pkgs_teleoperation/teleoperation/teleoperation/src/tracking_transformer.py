@@ -28,7 +28,7 @@ class TrackingTransformer:
         self.logger = logging.getLogger(self.__class__.__name__)
         logging.basicConfig(level=logging.INFO)
 
-        # Initialize poses
+        # Initialize poses (tracking coordonates are y-up)
         self.tracking_head_mat = self._create_matrix(translation=(0, 1.5, 0))
         self.tracking_left_wrist_mat = self._create_matrix(translation=(-0.3, 1, -0.2))
         self.tracking_right_wrist_mat = self._create_matrix(translation=(0.3, 1, -0.2))
@@ -37,8 +37,8 @@ class TrackingTransformer:
         self.grd_yup2grd_zup = self._create_matrix(rotation=(90, 0, 0))
         self.torso2head = self._create_matrix(translation=(0, 0.25, 0.374605))
 
-        self.hand2gripper_left = self._create_matrix(rotation=(0, -90, 180))
-        self.hand2gripper_right = self._create_matrix(rotation=(0, 90, 180))
+        self.hand2gripper_left = self._create_matrix(rotation=(0, 90, 0))
+        self.hand2gripper_right = self._create_matrix(rotation=(0, -90, 180))
 
         # Hand joints dictionary
         self.hand_joints = {k: JOINT_IDS[k] for k in JOINT_IDS if k != "wrist"}
