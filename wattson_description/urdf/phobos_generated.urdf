@@ -2,102 +2,102 @@
   <joint name="joint_left_arm_yaw" type="revolute">
     <limit lower="-3.14000" upper="3.14000" effort="0.00000" velocity="0.00000"/>
     <origin rpy="1.57080 0.00000 0.00000" xyz="-0.00717 0.16307 -0.02474"/>
-    <parent link="left_shoulder_x_link"/>
-    <child link="left_upper_arm_link"/>
+    <parent link="link_left_shoulder_x"/>
+    <child link="link_left_upper_arm"/>
     <axis xyz="0.00000 0.00000 1.00000"/>
   </joint>
   <joint name="joint_left_elbow_pitch" type="revolute">
     <limit lower="-3.14000" upper="3.14000" effort="0.00000" velocity="0.00000"/>
     <origin rpy="0.00000 1.57080 0.00000" xyz="-0.02455 0.00813 -0.12544"/>
-    <parent link="left_upper_arm_link"/>
-    <child link="left_forearm_link"/>
+    <parent link="link_left_upper_arm"/>
+    <child link="link_left_elbow"/>
     <axis xyz="0.00000 0.00000 1.00000"/>
   </joint>
   <joint name="joint_left_forearm_yaw" type="revolute">
     <limit lower="-3.14000" upper="3.14000" effort="0.00000" velocity="0.00000"/>
     <origin rpy="0.00000 -1.57080 0.00000" xyz="0.16300 -0.00751 0.02462"/>
-    <parent link="left_forearm_link"/>
-    <child link="left_wrist_link"/>
+    <parent link="link_left_elbow"/>
+    <child link="link_left_forearm"/>
     <axis xyz="0.00000 0.00000 1.00000"/>
   </joint>
   <joint name="joint_left_shoulder_pitch" type="revolute">
     <limit lower="-3.14000" upper="3.14000" effort="0.00000" velocity="0.00000"/>
     <origin rpy="-0.00000 1.57080 0.00000" xyz="-0.13450 -0.00005 -0.00000"/>
     <parent link="link_torso"/>
-    <child link="left_shoulder_link"/>
+    <child link="link_left_shoulder"/>
     <axis xyz="0.00000 0.00000 1.00000"/>
   </joint>
   <joint name="joint_left_shoulder_roll" type="revolute">
     <limit lower="-3.14000" upper="3.14000" effort="0.00000" velocity="0.00000"/>
     <origin rpy="-1.57080 -1.57080 0.00000" xyz="0.00750 0.02422 -0.10644"/>
-    <parent link="left_shoulder_link"/>
-    <child link="left_shoulder_x_link"/>
+    <parent link="link_left_shoulder"/>
+    <child link="link_left_shoulder_x"/>
     <axis xyz="0.00000 0.00000 1.00000"/>
   </joint>
   <joint name="joint_left_wrist_pitch" type="revolute">
     <limit lower="-3.14000" upper="3.14000" effort="0.00000" velocity="0.00000"/>
     <origin rpy="0.00000 1.57080 0.00000" xyz="-0.00045 -0.00005 -0.05499"/>
-    <parent link="left_wrist_link"/>
-    <child link="left_wrist_connection_link"/>
+    <parent link="link_left_forearm"/>
+    <child link="link_left_wrist"/>
     <axis xyz="0.00000 0.00000 1.00000"/>
   </joint>
   <joint name="joint_left_wrist_roll" type="revolute">
     <limit lower="-3.14000" upper="3.14000" effort="0.00000" velocity="0.00000"/>
     <origin rpy="-1.57080 -1.57080 0.00000" xyz="0.02994 -0.00000 0.00000"/>
-    <parent link="left_wrist_connection_link"/>
-    <child link="left_wrist_x_link"/>
+    <parent link="link_left_wrist"/>
+    <child link="link_left_hand"/>
     <axis xyz="0.00000 0.00000 1.00000"/>
   </joint>
   <joint name="joint_right_arm_yaw" type="revolute">
     <limit lower="-3.14000" upper="3.14000" effort="0.00000" velocity="0.00000"/>
     <origin rpy="1.57080 0.00000 0.00000" xyz="0.00717 -0.16307 0.02474"/>
-    <parent link="right_shoulder_x_link"/>
-    <child link="right_upper_arm_link"/>
+    <parent link="link_right_shoulder_x"/>
+    <child link="link_right_upper_arm"/>
     <axis xyz="0.00000 0.00000 1.00000"/>
   </joint>
   <joint name="joint_right_elbow_pitch" type="revolute">
     <limit lower="-3.14000" upper="3.14000" effort="0.00000" velocity="0.00000"/>
     <origin rpy="1.79848 -1.57080 1.34311" xyz="0.02455 -0.00813 0.12544"/>
-    <parent link="right_upper_arm_link"/>
-    <child link="right_forearm_link"/>
+    <parent link="link_right_upper_arm"/>
+    <child link="link_right_elbow"/>
     <axis xyz="0.00000 0.00000 1.00000"/>
   </joint>
   <joint name="joint_right_forearm_yaw" type="revolute">
     <limit lower="-3.14000" upper="3.14000" effort="0.00000" velocity="0.00000"/>
     <origin rpy="-3.14159 -1.57080 0.00000" xyz="0.16300 -0.00751 -0.02462"/>
-    <parent link="right_forearm_link"/>
-    <child link="right_wrist_link"/>
+    <parent link="link_right_elbow"/>
+    <child link="link_right_forearm"/>
     <axis xyz="0.00000 0.00000 1.00000"/>
   </joint>
   <joint name="joint_right_shoulder_pitch" type="revolute">
     <limit lower="-3.14000" upper="3.14000" effort="0.00000" velocity="0.00000"/>
     <origin rpy="-0.00000 1.57080 0.00000" xyz="0.13454 -0.00005 -0.00000"/>
     <parent link="link_torso"/>
-    <child link="right_shoulder_link"/>
+    <child link="link_right_shoulder"/>
     <axis xyz="0.00000 0.00000 1.00000"/>
   </joint>
   <joint name="joint_right_shoulder_roll" type="revolute">
     <limit lower="-3.14000" upper="3.14000" effort="0.00000" velocity="0.00000"/>
     <origin rpy="1.57080 -1.57080 0.00000" xyz="0.00750 0.02422 0.10644"/>
-    <parent link="right_shoulder_link"/>
-    <child link="right_shoulder_x_link"/>
+    <parent link="link_right_shoulder"/>
+    <child link="link_right_shoulder_x"/>
     <axis xyz="0.00000 0.00000 1.00000"/>
   </joint>
   <joint name="joint_right_wrist_pitch" type="revolute">
     <limit lower="-3.14000" upper="3.14000" effort="0.00000" velocity="0.00000"/>
     <origin rpy="1.79848 -1.57080 1.34311" xyz="0.00045 0.00005 0.05499"/>
-    <parent link="right_wrist_link"/>
-    <child link="right_wrist_connection_link"/>
+    <parent link="link_right_forearm"/>
+    <child link="link_right_wrist"/>
     <axis xyz="0.00000 0.00000 1.00000"/>
   </joint>
   <joint name="joint_right_wrist_roll" type="revolute">
     <limit lower="-3.14000" upper="3.14000" effort="0.00000" velocity="0.00000"/>
     <origin rpy="1.57080 -1.57080 0.00000" xyz="0.02994 -0.00000 -0.00000"/>
-    <parent link="right_wrist_connection_link"/>
-    <child link="right_wrist_x_link"/>
+    <parent link="link_right_wrist"/>
+    <child link="link_right_hand"/>
     <axis xyz="0.00000 0.00000 1.00000"/>
   </joint>
-  <link name="left_forearm_link">
+  <link name="link_left_elbow">
     <collision>
       <origin rpy="0.00000 -1.57080 0.00000" xyz="0.05728 -0.00006 0.02315"/>
       <geometry>
@@ -112,67 +112,7 @@
       </geometry>
     </visual>
   </link>
-  <link name="left_shoulder_link">
-    <collision>
-      <origin rpy="0.00000 0.00000 0.00000" xyz="-0.00000 0.00005 -0.07697"/>
-      <geometry>
-        <cylinder radius="0.05750" length="0.15394"/>
-      </geometry>
-    </collision>
-    <visual name="left_shoulder">
-      <origin rpy="0.00000 -1.57080 0.00000" xyz="0.00000 0.00000 0.00000"/>
-      <material name="Base colour"/>
-      <geometry>
-        <mesh filename="package://wattson_description/meshes/stl/left_shoulder.stl" scale="1.00000 1.00000 1.00000"/>
-      </geometry>
-    </visual>
-  </link>
-  <link name="left_shoulder_x_link">
-    <collision>
-      <origin rpy="1.57080 0.00000 0.00000" xyz="-0.00006 0.05728 -0.02518"/>
-      <geometry>
-        <cylinder radius="0.04750" length="0.20945"/>
-      </geometry>
-    </collision>
-    <visual name="left_shoulder_x">
-      <origin rpy="1.57080 0.00000 0.00000" xyz="0.00000 0.00000 0.00000"/>
-      <material name="Base colour"/>
-      <geometry>
-        <mesh filename="package://wattson_description/meshes/stl/left_shoulder_x.stl" scale="1.00000 1.00000 1.00000"/>
-      </geometry>
-    </visual>
-  </link>
-  <link name="left_upper_arm_link">
-    <collision>
-      <origin rpy="0.00000 0.00000 0.00000" xyz="0.00764 0.00809 -0.08641"/>
-      <geometry>
-        <cylinder radius="0.04749" length="0.17294"/>
-      </geometry>
-    </collision>
-    <visual name="left_upper_arm">
-      <origin rpy="0.00000 0.00000 0.00000" xyz="0.00000 0.00000 0.00000"/>
-      <material name="Base colour"/>
-      <geometry>
-        <mesh filename="package://wattson_description/meshes/stl/left_upper_arm.stl" scale="1.00000 1.00000 1.00000"/>
-      </geometry>
-    </visual>
-  </link>
-  <link name="left_wrist_connection_link">
-    <collision>
-      <origin rpy="0.00000 -1.57080 0.00000" xyz="0.01501 -0.00000 0.00000"/>
-      <geometry>
-        <cylinder radius="0.02500" length="0.06115"/>
-      </geometry>
-    </collision>
-    <visual name="left_wrist_connection">
-      <origin rpy="0.00000 -1.57080 0.00000" xyz="0.00000 0.00000 0.00000"/>
-      <material name="Base colour"/>
-      <geometry>
-        <mesh filename="package://wattson_description/meshes/stl/left_wrist_connection.stl" scale="1.00000 1.00000 1.00000"/>
-      </geometry>
-    </visual>
-  </link>
-  <link name="left_wrist_link">
+  <link name="link_left_forearm">
     <collision>
       <origin rpy="0.00000 0.00000 0.00000" xyz="-0.00045 -0.00008 -0.03495"/>
       <geometry>
@@ -187,7 +127,7 @@
       </geometry>
     </visual>
   </link>
-  <link name="left_wrist_x_link">
+  <link name="link_left_hand">
     <collision>
       <origin rpy="1.57080 -0.00000 1.57080" xyz="0.00001 0.02195 0.00000"/>
       <geometry>
@@ -201,11 +141,183 @@
         <mesh filename="package://wattson_description/meshes/stl/left_hand.stl" scale="1.00000 1.00000 1.00000"/>
       </geometry>
     </visual>
-    <visual name="left_wrist_x">
+    <visual name="left_wrist_connection">
       <origin rpy="1.57080 0.00000 0.00000" xyz="0.00000 0.00000 0.00000"/>
       <material name="Base colour"/>
       <geometry>
         <mesh filename="package://wattson_description/meshes/stl/left_wrist_x.stl" scale="1.00000 1.00000 1.00000"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="link_left_shoulder">
+    <collision>
+      <origin rpy="0.00000 0.00000 0.00000" xyz="-0.00000 0.00005 -0.07697"/>
+      <geometry>
+        <cylinder radius="0.05750" length="0.15394"/>
+      </geometry>
+    </collision>
+    <visual name="left_shoulder">
+      <origin rpy="0.00000 -1.57080 0.00000" xyz="0.00000 0.00000 0.00000"/>
+      <material name="Base colour"/>
+      <geometry>
+        <mesh filename="package://wattson_description/meshes/stl/left_shoulder.stl" scale="1.00000 1.00000 1.00000"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="link_left_shoulder_x">
+    <collision>
+      <origin rpy="1.57080 0.00000 0.00000" xyz="-0.00006 0.05728 -0.02518"/>
+      <geometry>
+        <cylinder radius="0.04750" length="0.20945"/>
+      </geometry>
+    </collision>
+    <visual name="left_shoulder_x">
+      <origin rpy="1.57080 0.00000 0.00000" xyz="0.00000 0.00000 0.00000"/>
+      <material name="Base colour"/>
+      <geometry>
+        <mesh filename="package://wattson_description/meshes/stl/left_shoulder_x.stl" scale="1.00000 1.00000 1.00000"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="link_left_upper_arm">
+    <collision>
+      <origin rpy="0.00000 0.00000 0.00000" xyz="0.00764 0.00809 -0.08641"/>
+      <geometry>
+        <cylinder radius="0.04749" length="0.17294"/>
+      </geometry>
+    </collision>
+    <visual name="left_upper_arm">
+      <origin rpy="0.00000 0.00000 0.00000" xyz="0.00000 0.00000 0.00000"/>
+      <material name="Base colour"/>
+      <geometry>
+        <mesh filename="package://wattson_description/meshes/stl/left_upper_arm.stl" scale="1.00000 1.00000 1.00000"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="link_left_wrist">
+    <collision>
+      <origin rpy="0.00000 -1.57080 0.00000" xyz="0.01501 -0.00000 0.00000"/>
+      <geometry>
+        <cylinder radius="0.02500" length="0.06115"/>
+      </geometry>
+    </collision>
+    <visual name="left_wrist_x">
+      <origin rpy="0.00000 -1.57080 0.00000" xyz="0.00000 0.00000 0.00000"/>
+      <material name="Base colour"/>
+      <geometry>
+        <mesh filename="package://wattson_description/meshes/stl/left_wrist_connection.stl" scale="1.00000 1.00000 1.00000"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="link_right_elbow">
+    <collision>
+      <origin rpy="0.00000 -1.57080 0.00000" xyz="0.05728 -0.00006 -0.02315"/>
+      <geometry>
+        <cylinder radius="0.04750" length="0.20945"/>
+      </geometry>
+    </collision>
+    <visual name="right_forearm">
+      <origin rpy="0.00000 -1.57080 0.00000" xyz="0.00000 0.00000 0.00000"/>
+      <material name="Base colour"/>
+      <geometry>
+        <mesh filename="package://wattson_description/meshes/stl/right_forearm.stl" scale="1.00000 1.00000 1.00000"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="link_right_forearm">
+    <collision>
+      <origin rpy="3.14159 0.00000 0.00000" xyz="0.00045 0.00008 0.03495"/>
+      <geometry>
+        <cylinder radius="0.03505" length="0.06989"/>
+      </geometry>
+    </collision>
+    <visual name="right_wrist">
+      <origin rpy="3.14159 0.00000 0.00000" xyz="-0.00000 0.00000 0.00000"/>
+      <material name="Base colour"/>
+      <geometry>
+        <mesh filename="package://wattson_description/meshes/stl/right_wrist.stl" scale="1.00000 1.00000 1.00000"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="link_right_hand">
+    <collision>
+      <origin rpy="-1.57080 -0.00000 -1.57080" xyz="-0.00001 -0.02195 -0.00000"/>
+      <geometry>
+        <cylinder radius="0.03682" length="0.04097"/>
+      </geometry>
+    </collision>
+    <visual name="right_hand">
+      <origin rpy="-1.57080 0.00000 0.00000" xyz="-0.00033 -0.04021 -0.00566"/>
+      <material name="Base colour"/>
+      <geometry>
+        <mesh filename="package://wattson_description/meshes/stl/right_hand.stl" scale="1.00000 1.00000 1.00000"/>
+      </geometry>
+    </visual>
+    <visual name="right_wrist__connection">
+      <origin rpy="-1.57080 0.00000 0.00000" xyz="0.00000 0.00000 0.00000"/>
+      <material name="Base colour"/>
+      <geometry>
+        <mesh filename="package://wattson_description/meshes/stl/right_wrist_x.stl" scale="1.00000 1.00000 1.00000"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="link_right_shoulder">
+    <collision>
+      <origin rpy="0.00000 0.00000 0.00000" xyz="-0.00000 0.00005 0.07697"/>
+      <geometry>
+        <cylinder radius="0.05750" length="0.15394"/>
+      </geometry>
+    </collision>
+    <visual name="right_shoulder">
+      <origin rpy="0.00000 -1.57080 0.00000" xyz="0.00000 0.00000 0.00000"/>
+      <material name="Base colour"/>
+      <geometry>
+        <mesh filename="package://wattson_description/meshes/stl/right_shoulder.stl" scale="1.00000 1.00000 1.00000"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="link_right_shoulder_x">
+    <collision>
+      <origin rpy="-1.57080 0.00000 0.00000" xyz="0.00006 -0.05728 0.02518"/>
+      <geometry>
+        <cylinder radius="0.04750" length="0.20945"/>
+      </geometry>
+    </collision>
+    <visual name="right_shoulder_x">
+      <origin rpy="-1.57080 0.00000 0.00000" xyz="0.00000 0.00000 0.00000"/>
+      <material name="Base colour"/>
+      <geometry>
+        <mesh filename="package://wattson_description/meshes/stl/right_shoulder_x.stl" scale="1.00000 1.00000 1.00000"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="link_right_upper_arm">
+    <collision>
+      <origin rpy="3.14159 0.00000 0.00000" xyz="-0.00764 -0.00809 0.08641"/>
+      <geometry>
+        <cylinder radius="0.04749" length="0.17294"/>
+      </geometry>
+    </collision>
+    <visual name="right_upper_arm">
+      <origin rpy="3.14159 0.00000 0.00000" xyz="0.00000 0.00000 0.00000"/>
+      <material name="Base colour"/>
+      <geometry>
+        <mesh filename="package://wattson_description/meshes/stl/right_upper_arm.stl" scale="1.00000 1.00000 1.00000"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="link_right_wrist">
+    <collision>
+      <origin rpy="0.00000 -1.57080 0.00000" xyz="0.01501 0.00000 -0.00000"/>
+      <geometry>
+        <cylinder radius="0.02500" length="0.06115"/>
+      </geometry>
+    </collision>
+    <visual name="right_wrist_x">
+      <origin rpy="0.00000 -1.57080 0.00000" xyz="-0.00000 0.00000 -0.00000"/>
+      <material name="Base colour"/>
+      <geometry>
+        <mesh filename="package://wattson_description/meshes/stl/right_wrist_connection.stl" scale="1.00000 1.00000 1.00000"/>
       </geometry>
     </visual>
   </link>
@@ -238,119 +350,7 @@
       </geometry>
     </visual>
   </link>
-  <link name="right_forearm_link">
-    <collision>
-      <origin rpy="0.00000 -1.57080 0.00000" xyz="0.05728 -0.00006 -0.02315"/>
-      <geometry>
-        <cylinder radius="0.04750" length="0.20945"/>
-      </geometry>
-    </collision>
-    <visual name="right_forearm">
-      <origin rpy="0.00000 -1.57080 0.00000" xyz="0.00000 0.00000 0.00000"/>
-      <material name="Base colour"/>
-      <geometry>
-        <mesh filename="package://wattson_description/meshes/stl/right_forearm.stl" scale="1.00000 1.00000 1.00000"/>
-      </geometry>
-    </visual>
-  </link>
-  <link name="right_shoulder_link">
-    <collision>
-      <origin rpy="0.00000 0.00000 0.00000" xyz="-0.00000 0.00005 0.07697"/>
-      <geometry>
-        <cylinder radius="0.05750" length="0.15394"/>
-      </geometry>
-    </collision>
-    <visual name="right_shoulder">
-      <origin rpy="0.00000 -1.57080 0.00000" xyz="0.00000 0.00000 0.00000"/>
-      <material name="Base colour"/>
-      <geometry>
-        <mesh filename="package://wattson_description/meshes/stl/right_shoulder.stl" scale="1.00000 1.00000 1.00000"/>
-      </geometry>
-    </visual>
-  </link>
-  <link name="right_shoulder_x_link">
-    <collision>
-      <origin rpy="-1.57080 0.00000 0.00000" xyz="0.00006 -0.05728 0.02518"/>
-      <geometry>
-        <cylinder radius="0.04750" length="0.20945"/>
-      </geometry>
-    </collision>
-    <visual name="right_shoulder_x">
-      <origin rpy="-1.57080 0.00000 0.00000" xyz="0.00000 0.00000 0.00000"/>
-      <material name="Base colour"/>
-      <geometry>
-        <mesh filename="package://wattson_description/meshes/stl/right_shoulder_x.stl" scale="1.00000 1.00000 1.00000"/>
-      </geometry>
-    </visual>
-  </link>
-  <link name="right_upper_arm_link">
-    <collision>
-      <origin rpy="3.14159 0.00000 0.00000" xyz="-0.00764 -0.00809 0.08641"/>
-      <geometry>
-        <cylinder radius="0.04749" length="0.17294"/>
-      </geometry>
-    </collision>
-    <visual name="right_upper_arm">
-      <origin rpy="3.14159 0.00000 0.00000" xyz="0.00000 0.00000 0.00000"/>
-      <material name="Base colour"/>
-      <geometry>
-        <mesh filename="package://wattson_description/meshes/stl/right_upper_arm.stl" scale="1.00000 1.00000 1.00000"/>
-      </geometry>
-    </visual>
-  </link>
-  <link name="right_wrist_connection_link">
-    <collision>
-      <origin rpy="0.00000 -1.57080 0.00000" xyz="0.01501 0.00000 -0.00000"/>
-      <geometry>
-        <cylinder radius="0.02500" length="0.06115"/>
-      </geometry>
-    </collision>
-    <visual name="right_wrist_connection">
-      <origin rpy="0.00000 -1.57080 0.00000" xyz="-0.00000 0.00000 -0.00000"/>
-      <material name="Base colour"/>
-      <geometry>
-        <mesh filename="package://wattson_description/meshes/stl/right_wrist_connection.stl" scale="1.00000 1.00000 1.00000"/>
-      </geometry>
-    </visual>
-  </link>
-  <link name="right_wrist_link">
-    <collision>
-      <origin rpy="3.14159 0.00000 0.00000" xyz="0.00045 0.00008 0.03495"/>
-      <geometry>
-        <cylinder radius="0.03505" length="0.06989"/>
-      </geometry>
-    </collision>
-    <visual name="right_wrist">
-      <origin rpy="3.14159 0.00000 0.00000" xyz="-0.00000 0.00000 0.00000"/>
-      <material name="Base colour"/>
-      <geometry>
-        <mesh filename="package://wattson_description/meshes/stl/right_wrist.stl" scale="1.00000 1.00000 1.00000"/>
-      </geometry>
-    </visual>
-  </link>
-  <link name="right_wrist_x_link">
-    <collision>
-      <origin rpy="-1.57080 -0.00000 -1.57080" xyz="-0.00001 -0.02195 -0.00000"/>
-      <geometry>
-        <cylinder radius="0.03682" length="0.04097"/>
-      </geometry>
-    </collision>
-    <visual name="right_hand">
-      <origin rpy="-1.57080 0.00000 0.00000" xyz="-0.00033 -0.04021 -0.00566"/>
-      <material name="Base colour"/>
-      <geometry>
-        <mesh filename="package://wattson_description/meshes/stl/right_hand.stl" scale="1.00000 1.00000 1.00000"/>
-      </geometry>
-    </visual>
-    <visual name="right_wrist_x">
-      <origin rpy="-1.57080 0.00000 0.00000" xyz="0.00000 0.00000 0.00000"/>
-      <material name="Base colour"/>
-      <geometry>
-        <mesh filename="package://wattson_description/meshes/stl/right_wrist_x.stl" scale="1.00000 1.00000 1.00000"/>
-      </geometry>
-    </visual>
-  </link>
   <material name="Base colour">
-    <color rgba="0.36471 0.36471 0.36471 1.00000"/>
+    <color rgba="0.51373 0.51373 0.51373 1.00000"/>
   </material>
 </robot>
