@@ -35,7 +35,8 @@ class ElrikKdlKinematics(Node):
         }
 
         self.locked_joints = {
-            self.end_effectors[0]: {5: 0.0},
+            # {link_id(int), angle(float)}
+            self.end_effectors[0]: {},
             self.end_effectors[1]: {},
             # self.end_effectors[2]: {},
         }
