@@ -26,7 +26,10 @@ Here's a quick rundown:
    - **Pitch** is positive when moving in front of the robot  
    - **Yaw** is positive when turning away from the robot (as if the front face is turning outward)  
    
-   Use the **right-hand rule** to ensure the positive rotation around each link’s Z-axis matches these conventions.
+   Use the **right-hand rule** to ensure the positive rotation around each link’s Z-axis matches these conventions. 
+
+   Link names should have a `link_` prefix to match convention, and the end-effectors (last link in a chain) should be named `link_left_hand`, `link_right_hand`, and `link_head_roll`. 
+   > If these need to be changed, changes should also be made in the IK package. 
 
 5. **Name the robot model**  
    Assign a name to the robot — this will set the root-link.
@@ -52,6 +55,8 @@ This package has a `fetch_phobos_urdf.py` script in the `utils/` folder, to fetc
 Change the paths in the `source_file` and `destination_file` variables. For example, all relative paths `../` need to be changed with `package://wattson_description/`.
 
 Manually copy the mesh files from the export folder to the `meshes/stl/` folder in the description package.
+
+> Should the hand orientations look weird when run with teleoperation, it is because of a transform from the VR controllers to the robot hands. Tune `self.hand2gripper_left` and `self.hand2gripper_right` in the `TrackingTransformer` class, found in `pkgs_teleoperation/teleoperation/teleoperation/src/tracking_transformer.py`.
 
 
 
