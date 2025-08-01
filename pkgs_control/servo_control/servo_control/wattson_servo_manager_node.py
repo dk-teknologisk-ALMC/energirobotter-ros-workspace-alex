@@ -64,18 +64,18 @@ class ServoManagerNode(Node):
         ]
 
         self.servo_driver_arms = DriverWaveshare(
-            json_files_arms, self.control_frequency
+            json_files_arms, self.control_frequency, port_path="/dev/ttyUSB0"
         )
 
         self.servo_driver_arms.initialize()
 
         # Hands
         json_files_hands = [
-            f"{config_folder_path}/servo_hand_left_params.json",
-            f"{config_folder_path}/servo_hand_right_params.json",
+            # f"{config_folder_path}/servo_hand_left_params.json",
+            # f"{config_folder_path}/servo_hand_right_params.json",
         ]
         self.servo_driver_hands = DriverWaveshare(
-            json_files_hands, self.control_frequency
+            json_files_hands, self.control_frequency, port_path="/dev/ttyUSB1"
         )
         self.servo_driver_hands.initialize()
 
