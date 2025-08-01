@@ -56,15 +56,28 @@ class ServoManagerNode(Node):
             1.0 / self.control_frequency, self.callback_timer
         )
 
-        # Configure servo manager
-        json_files = [
+        # Configure servo managers
+        # Arms
+        json_files_arms = [
             f"{config_folder_path}/servo_arm_left_params.json",
             f"{config_folder_path}/servo_arm_right_params.json",
-            # f"{config_folder_path}/servo_hand_left_params.json",
-            # f"{config_folder_path}/servo_hand_right_params.json",
         ]
-        self.servo_driver = DriverWaveshare(json_files, self.control_frequency)
-        self.servo_driver.initialize()
+
+        self.servo_driver_arms = DriverWaveshare(
+            json_files_arms, self.control_frequency
+        )
+
+        self.servo_driver_arms.initialize()
+
+        # Hands
+        json_files_hands = [
+            f"{config_folder_path}/servo_hand_left_params.json",
+            f"{config_folder_path}/servo_hand_right_params.json",
+        ]
+        self.servo_driver_hands = DriverWaveshare(
+            json_files_hands, self.control_frequency
+        )
+        self.servo_driver_hands.initialize()
 
         # Node variables
         self.servo_commands = {}
@@ -80,15 +93,17 @@ class ServoManagerNode(Node):
         # Map angles to servo range for fingers
         if self.finger_mapping_enabled:
             for servo_name in self.servo_commands_hands:
-                if servo_name not in self.servo_driver.servos:
+                if servo_name not in self.servo_driver_hands.servos:
                     continue
 
-                servo = self.servo_driver.servos[servo_name]
+                servo = self.servo_driver_hands.servos[servo_name]
                 command = self.servo_commands_hands[servo_name]
 
                 self.get_logger().info(f"tracked angle: {command}")
 
-                angle_mapped = self.servo_driver.map_finger_to_servo(servo, command)
+                angle_mapped = self.servo_driver_hands.map_finger_to_servo(
+                    servo, command
+                )
                 self.servo_commands_hands[servo_name] = angle_mapped
 
                 self.get_logger().info(f"mapped angle: {angle_mapped}")
@@ -103,15 +118,17 @@ class ServoManagerNode(Node):
             self.get_logger().info(f"Commands received!", once=True)
 
         # Update servos
-        self.servo_driver.update_feedback()
-        self.servo_driver.command_servos(self.servo_commands)
-
+        self.servo_driver_arms.update_feedback()
+        self.servo_driver_arms.command_servos(self.servo_commands)
         self.servo_commands_arms = {}
+
+        self.servo_driver_hands.update_feedback()
+        self.servo_driver_hands.command_servos(self.servo_commands)
         self.servo_commands_hands = {}
 
         # DEBUG
-        temperatures = self.servo_driver.get_servo_temperatures()
-        # positions = self.servo_driver.get_servo_angles()
+        temperatures = self.servo_driver_arms.get_servo_temperatures()
+        # positions = self.servo_driver_arms.get_servo_angles()
 
         msg = JointState()
         msg.header.stamp = self.get_clock().now().to_msg()

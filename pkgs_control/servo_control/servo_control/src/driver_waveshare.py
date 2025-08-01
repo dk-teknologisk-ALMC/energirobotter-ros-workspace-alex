@@ -11,7 +11,6 @@ from .utils import interval_map
 from servo_control.src.driver_servos import DriverServos
 from servo_control.src.servo_control import ServoControl
 
-PORT = "/dev/ttyUSB0"
 BAUDRATE = 115200
 
 supported_servos = {
@@ -21,8 +20,12 @@ supported_servos = {
 
 
 class DriverWaveshare(DriverServos):
-    def __init__(self, config_files, control_frequency, debug=False):
+    def __init__(
+        self, config_files, control_frequency, port_path="/dev/ttyUSB0", debug=False
+    ):
         super().__init__(config_files)
+
+        self.port_path = port_path
 
         self.servo_models = []
         for config in config_files:
@@ -57,7 +60,7 @@ class DriverWaveshare(DriverServos):
         self.logger.info("Initializing serial communication with Waveshare...")
 
         try:
-            self.port_handler = PortHandler(PORT)
+            self.port_handler = PortHandler(self.port_path)
 
             if not self.port_handler.openPort():
                 self.logger.error("Failed to open port")
