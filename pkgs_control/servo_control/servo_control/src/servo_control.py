@@ -75,12 +75,20 @@ class ServoControl:
         self.feedback_enabled = feedback_enabled
 
         self.gear_zero_position = (angle_max + angle_min) // 2
-        self.angle_init = self.default_position
-        self.angle = self.angle_init
-        self.pwm = self.angle_2_pwm(self.angle)
+        self.angle = self.default_position
+        self.angle_speed = 0.0
+
+        self.pwm_speed_max = self.angle_speed_to_hardware_pwm_speed(
+            self.angle_speed_max, self.gear_ratio
+        )
+
+        self.pwm = self.angle_to_hardware_pwm(self.angle, self.gear_ratio)
+        self.pwm_speed = self.angle_speed_to_hardware_pwm_speed(
+            self.angle_speed, self.gear_ratio
+        )
         self.temperature = 0.0
 
-        self.time_prev = time.time()
+        self.time_prev = None
         self.error_acc = 0.0
         self.error_prev = 0.0
 
@@ -141,19 +149,21 @@ class ServoControl:
 
         return kP + kI + kD
 
-    def limit_speed(self, speed, speed_max):
+    def limit_speed(self, speed, speed_max=None):
         """
         Limits the speed within defined constraints.
 
         Args:
-            speed (float): Desired speed.
+            speed (float): Desired speed. A value of None equals maximum speed.
             speed_max (float): Maximum allowed speed.
 
         Returns:
             float: Clamped speed value.
         """
         # Clamp values between desired min and max speed
-        speed = np.clip(speed, -speed_max, speed_max)
+        if speed_max:
+            speed = np.clip(speed, -speed_max, speed_max)
+
         # Respect each servos individual speed limit
         speed = np.clip(speed, -self.angle_speed_max, self.angle_speed_max)
 
@@ -165,32 +175,42 @@ class ServoControl:
 
         Args:
             angle (float): Target angle.
-            speed_max (float, optional): Maximum allowed speed. Defaults to None.
+            speed_max (float, optional): Maximum allowed speed. Defaults to None (max speed).
 
         Returns:
             tuple: (angle_cmd, pwm_cmd) as integers.
         """
-        if speed_max:
-            t_d = time.time() - self.time_prev
+        # Compute speed
+        if speed_max is None:
+            speed_max = self.angle_speed_max
+
+        if self.time_prev == None:
             self.time_prev = time.time()
 
-            angle_delta = angle_target - self.angle
-            speed = np.sign(angle_delta) * speed_max if angle_delta != 0 else 0
-            speed = self.limit_speed(speed, speed_max)
-            angle_cmd = self.angle + speed * t_d
+        t_d = time.time() - self.time_prev
+        self.time_prev = time.time()
 
-            # Ensure no overshoot
-            if abs(angle_delta) < abs(speed) * t_d:
-                angle_cmd = angle_target
+        angle_delta = angle_target - self.angle
+        angle_vel = np.sign(angle_delta) * speed_max if angle_delta != 0 else 0
+        angle_vel = self.limit_speed(angle_vel, speed_max)
+        angle_cmd = self.angle + angle_vel * t_d
 
-        else:
+        # Ensure no overshoot
+        if abs(angle_delta) < abs(angle_vel) * t_d:
             angle_cmd = angle_target
 
+        # Enforce limits
         angle_cmd = np.clip(angle_cmd, self.angle_software_min, self.angle_software_max)
 
+        # Set direct feedback if no sensor data available
+        # Internal angle value for control
         if not self.feedback_enabled:
             self.angle = angle_cmd
-            self.pwm = self.angle_2_pwm(angle_cmd)
+            self.angle_speed = abs(angle_vel)
+            self.pwm = self.angle_to_hardware_pwm(self.angle, self.gear_ratio)
+            self.pwm_speed = self.angle_speed_to_hardware_pwm_speed(
+                self.angle_speed, self.gear_ratio
+            )
 
         # Flip angle to send if direction is flipped
         if self.dir < 0:
@@ -202,11 +222,8 @@ class ServoControl:
                 self.angle_software_min,
             )
 
-        # Apply gearing ratio
-        angle_cmd_geared = self.gearing_out(angle_cmd, self.gear_ratio)
-        pwm_cmd_geared = self.angle_2_pwm(angle_cmd_geared)
-
-        return int(angle_cmd_geared), int(pwm_cmd_geared)
+        # Compute and return PWM command
+        return self.angle_to_hardware_pwm(angle_cmd, self.gear_ratio)
 
     def compute_control(self, t_d, error, speed_max=None):
 
@@ -238,35 +255,37 @@ class ServoControl:
 
         return self.compute_command(angle_cmd)
 
-    def angle_2_pwm(self, angle):
+    def angle_2_pwm(self, angle, clamp=True):
         """
         Converts an angle to a corresponding PWM value.
 
         Args:
             angle (float): Servo angle.
+            clamp (bool): clamp x within [x0, x1] to avoid out-of-bounds mapping. Default is True.
 
         Returns:
             int: Corresponding PWM value.
         """
-        return int(
+        return round(
             interval_map(
-                angle, self.angle_min, self.angle_max, self.pwm_min, self.pwm_max
+                angle, self.angle_min, self.angle_max, self.pwm_min, self.pwm_max, clamp
             )
         )
 
-    def pwm_2_angle(self, pwm):
+    def pwm_2_angle(self, pwm, clamp=True):
         """
         Converts a PWM value to its corresponding angle.
 
         Args:
             pwm (int): PWM signal.
+            clamp (bool): clamp x within [x0, x1] to avoid out-of-bounds mapping. Default is True.
 
         Returns:
             int: Corresponding angle.
         """
-        return int(
+        return round(
             interval_map(
-                pwm, self.pwm_min, self.pwm_max, self.angle_min, self.angle_max
+                pwm, self.pwm_min, self.pwm_max, self.angle_min, self.angle_max, clamp
             )
         )
 
@@ -296,18 +315,34 @@ class ServoControl:
         """
         return self.gear_zero_position + (value - self.gear_zero_position) * gear_ratio
 
-    def reach_angle_direct(self, angle, speed=None):
+    def angle_to_hardware_pwm(self, angle, gear_ratio):
         """
-        Moves the servo to a specific angle directly.
+        Computes the PWM value required to achieve a desired angle, accounting for gearing effects.
 
         Args:
-            angle (float): Target angle.
-            speed (float, optional): Speed limit. Defaults to None.
+            angle (float): Desired servo angle.
+            gear_ratio (float): Gear ratio between the motor and output shaft.
 
         Returns:
-            tuple: (angle_cmd, pwm_cmd)
+            int: Corresponding PWM value after applying gearing.
         """
-        return self.compute_command(angle, speed)
+        angle_geared = self.gearing_out(angle, gear_ratio)
+        pwm_geared = self.angle_2_pwm(angle_geared)
+        return int(pwm_geared)
+
+    def angle_speed_to_hardware_pwm_speed(self, angle_speed, gear_ratio):
+        """
+        Computes the PWM speed corresponding to a desired angular speed, taking the gear ratio into account.
+
+        Args:
+            angle_speed (float): Angular speed at the output.
+            gear_ratio (float): Gear ratio between the motor and output shaft.
+
+        Returns:
+            float: PWM speed after applying gearing.
+        """
+        pwm_speed = self.angle_2_pwm(angle_speed, clamp=False) * gear_ratio
+        return pwm_speed
 
     def reach_angle(self, t_d, angle, speed=None):
         """
@@ -334,4 +369,4 @@ class ServoControl:
         Returns:
             tuple: (angle_cmd, pwm_cmd)
         """
-        return self.reach_angle(t_d, self.angle_init)
+        return self.reach_angle(t_d, self.default_position)

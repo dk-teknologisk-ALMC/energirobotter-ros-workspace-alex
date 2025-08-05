@@ -22,6 +22,13 @@ class ServoManagerNode(Node):
             self.get_parameter("control_frequency").get_parameter_value().double_value
         )
 
+        self.declare_parameter("finger_mapping_enabled", True)
+        self.finger_mapping_enabled = (
+            self.get_parameter("finger_mapping_enabled")
+            .get_parameter_value()
+            .bool_value
+        )
+
         self.declare_parameter(
             "config_folder_path",
             "install/energirobotter_bringup/share/energirobotter_bringup/config/servos",
@@ -53,11 +60,14 @@ class ServoManagerNode(Node):
         json_files = [
             f"{config_folder_path}/servo_arm_left_params.json",
             f"{config_folder_path}/servo_arm_right_params.json",
+            # f"{config_folder_path}/servo_hand_left_params.json",
+            # f"{config_folder_path}/servo_hand_right_params.json",
         ]
         self.servo_driver = DriverWaveshare(json_files, self.control_frequency)
-        self.servo_commands = self.servo_driver.get_default_servo_commands()
+        self.servo_driver.initialize()
 
         # Node variables
+        self.servo_commands = {}
         self.servo_commands_arms = {}
         self.servo_commands_hands = {}
 
@@ -68,15 +78,20 @@ class ServoManagerNode(Node):
         self.servo_commands_hands = dict(zip(msg.name, np.rad2deg(msg.position)))
 
         # Map angles to servo range for fingers
-        for servo_name in self.servo_commands_hands:
-            if servo_name not in self.servo_driver.servos:
-                continue
+        if self.finger_mapping_enabled:
+            for servo_name in self.servo_commands_hands:
+                if servo_name not in self.servo_driver.servos:
+                    continue
 
-            servo = self.servo_driver.servos[servo_name]
-            command = self.servo_commands_hands[servo_name]
+                servo = self.servo_driver.servos[servo_name]
+                command = self.servo_commands_hands[servo_name]
 
-            angle_mapped = self.servo_driver.map_finger_to_servo(servo, command)
-            self.servo_commands_hands[servo_name] = angle_mapped
+                self.get_logger().info(f"tracked angle: {command}")
+
+                angle_mapped = self.servo_driver.map_finger_to_servo(servo, command)
+                self.servo_commands_hands[servo_name] = angle_mapped
+
+                self.get_logger().info(f"mapped angle: {angle_mapped}")
 
     def callback_timer(self):
         # Combine command dicts into one
@@ -90,6 +105,9 @@ class ServoManagerNode(Node):
         # Update servos
         self.servo_driver.update_feedback()
         self.servo_driver.command_servos(self.servo_commands)
+
+        self.servo_commands_arms = {}
+        self.servo_commands_hands = {}
 
         # DEBUG
         temperatures = self.servo_driver.get_servo_temperatures()

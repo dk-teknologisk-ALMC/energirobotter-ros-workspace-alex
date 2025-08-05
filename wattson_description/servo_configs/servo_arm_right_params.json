@@ -1,11 +1,12 @@
 {
     "group": {
         "name": "arm_right",
+        "servo_model": "ST3215",
         "synchronise_speed": true
     },
     "servos": {
         "joint_right_shoulder_pitch": {
-            "servo_id": 18,
+            "servo_id": 17,
             "dir": -1,
             "gear_ratio": 4,
             "pwm_min": 0,
@@ -14,7 +15,7 @@
             "angle_max": 360,
             "angle_software_min": 135,
             "angle_software_max": 225,
-            "angle_speed_max": 200,
+            "angle_speed_max": 500,
             "default_position": 145,
             "feedback_enabled": false,
             "gain_P": 1.0,
@@ -22,7 +23,7 @@
             "gain_D": 0.0
         },
         "joint_right_shoulder_roll": {
-            "servo_id": 27,
+            "servo_id": 16,
             "dir": 1,
             "gear_ratio": 4,
             "pwm_min": 0,
@@ -31,7 +32,7 @@
             "angle_max": 360,
             "angle_software_min": 135,
             "angle_software_max": 225,
-            "angle_speed_max": 200,
+            "angle_speed_max": 500,
             "default_position": 145,
             "feedback_enabled": false,
             "gain_P": 1.0,
@@ -39,7 +40,7 @@
             "gain_D": 0.0
         },
         "joint_right_arm_yaw": {
-            "servo_id": 24,
+            "servo_id": 15,
             "dir": -1,
             "gear_ratio": 4,
             "pwm_min": 0,
@@ -48,7 +49,7 @@
             "angle_max": 360,
             "angle_software_min": 135,
             "angle_software_max": 225,
-            "angle_speed_max": 200,
+            "angle_speed_max": 500,
             "default_position": 215,
             "feedback_enabled": false,
             "gain_P": 1.0,
@@ -56,7 +57,7 @@
             "gain_D": 0.0
         },
         "joint_right_elbow_pitch": {
-            "servo_id": 21,
+            "servo_id": 14,
             "dir": -1,
             "gear_ratio": 4,
             "pwm_min": 0,
@@ -65,7 +66,7 @@
             "angle_max": 360,
             "angle_software_min": 135,
             "angle_software_max": 225,
-            "angle_speed_max": 200,
+            "angle_speed_max": 500,
             "default_position": 145,
             "feedback_enabled": false,
             "gain_P": 1.0,

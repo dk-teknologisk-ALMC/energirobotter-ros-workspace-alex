@@ -12,22 +12,62 @@ rosdep install --from-paths src -y --ignore-src
 ```
 
 - [Energirobotter Bringup](#energirobotter-bringup)
-  - [Teleoperation Vuer](#teleoperation-vuer)
+  - [Slider Control](#slider-control)
+    - [Launch File](#launch-file)
     - [Setup Robot](#setup-robot)
       - [Enable Servo Serial Forwarding](#enable-servo-serial-forwarding)
+  - [Teleoperation Vuer](#teleoperation-vuer)
+    - [Setup Robot](#setup-robot-1)
+      - [Enable Servo Serial Forwarding](#enable-servo-serial-forwarding-1)
     - [Setup Visualisation](#setup-visualisation)
     - [Setup VR Headset](#setup-vr-headset)
       - [Wireless](#wireless)
       - [Wired](#wired)
     - [Calibrate and Launch](#calibrate-and-launch)
     - [V1 Demo notes (Danish)](#v1-demo-notes-danish)
-  - [Teleoperation Unity](#teleoperation-unity)
+  - [Teleoperation Unity (Deprecated)](#teleoperation-unity-deprecated)
     - [Setup VR Headset](#setup-vr-headset-1)
       - [Connected to computer with Unity](#connected-to-computer-with-unity)
       - [Only VR headset](#only-vr-headset)
-    - [Setup Robot](#setup-robot-1)
+    - [Setup Robot](#setup-robot-2)
     - [Calibrate and Launch](#calibrate-and-launch-1)
-  - [Face Following](#face-following)
+  - [Face Following (Deprecated)](#face-following-deprecated)
+
+
+## Slider Control
+
+Creates panel with sliders for each joint, to test in a more controlled way.
+
+
+### Launch File
+On computer with display:
+```
+ros2 launch energirobotter_bringup slider_control.launch.py description_package:=wattson_description
+```
+
+### Setup Robot
+
+1. Turn on the robot
+2. From terminal on PC SSH into the robot (Elrik example):
+   ```
+   ssh elrik@192.168.1.105
+   ```
+4. Start `servos.launch.py` in a terminal on the robot:
+> As soon as the `servos.launch.py` is running, it is able to move!
+   ```
+   cd energinet/
+   shumble
+   sw
+   ros2 launch energirobotter_bringup servos.launch.py
+   ```
+
+
+#### Enable Servo Serial Forwarding
+
+1. On your phone (or computer that does not need to communicate to the robot), connect to the `ESP32_DEV` Wi-Fi network (password is `12345678`)
+2. In browser, go to `192.168.4.1`
+3. Click button `Start Serial Forwarding` - OBS! Make sure nothing is sending commands to the robot yet
+4. Click botton `Stop Serial Forwarding` but don't click `OK`, it's now ready as a stop button if needed
 
 
 ## Teleoperation Vuer
@@ -62,7 +102,7 @@ The camera can only be served in the headset over a secure connection, for this 
 
 #### Enable Servo Serial Forwarding
 
-1. On your phone, connect to the `ESP32_DEV` Wi-Fi network
+1. On your phone (or computer that does not need to communicate to the robot), connect to the `ESP32_DEV` Wi-Fi network (password is `12345678`)
 2. In browser, go to `192.168.4.1`
 3. Click button `Start Serial Forwarding` - OBS! Make sure nothing is sending commands to the robot yet
 4. Click botton `Stop Serial Forwarding` but don't click `OK`, it's now ready as a stop button if needed
@@ -84,6 +124,7 @@ The camera can only be served in the headset over a secure connection, for this 
 2. In the headset's browser, go to the `ngrok` URL shown in the terminal when launching the teleoperation. 
 
 #### Wired
+> You need to run `teleoperation_vuer.launch.py` (step 4. under "Setup Robot") on the computer the headset is connected to, to be able to acces its localhost address.
 2. Plug USB cable into headset first, then put it on
 3. Plug cable into computer, and accept USB connection in the headset (if you miss it, you can find it under notifications)
 > If the "`USB-C Port Disabled, water and debris`" message pops up, restart the headset and try again. If that does not work, use the other end of the cable and try again.
@@ -133,8 +174,7 @@ Steps:
 - Vær klar til at stoppe, hvis der sker noget, eller de tager headset af for hurtigt
 
 
-## Teleoperation Unity
-> **Deprecated**
+## Teleoperation Unity (Deprecated)
 
 ### Setup VR Headset 
 
@@ -189,9 +229,7 @@ Have a screen connected to the Jetson of the robot, to verify tracking data sent
 4. When done with the teleoperation, stop the `arm.launch.py` terminal
 
 
-## Face Following
-
-> **Deprecated**
+## Face Following (Deprecated)
 
 Use the `energirobotter_bringup` package's `vision.launch.py` to start the camera and face detection:
 

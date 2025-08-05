@@ -62,11 +62,8 @@ class DriverServos(ABC):
                 self.logger.info(f"{servo_name}")
         self.logger.info(f"--------")
 
-        # Setup driver
-        self.driver_object = self.setup_driver()
-        self.coms_active = self.driver_object is not None
-
         # Member parameters
+        self.coms_active = False
         self.speed_min = 10.0
         self.distance_threshold_min = 5
 
@@ -112,6 +109,17 @@ class DriverServos(ABC):
         pass
 
     @abstractmethod
+    def read_feedback(self, servo: ServoControl):
+        """
+        Abstract method to read feedback from the servos.
+        Must return a feedback PWM value.
+
+        Args:
+            servo (ServoControl): Servo object containing servo attributes.
+        """
+        pass
+
+    @abstractmethod
     def write_command(self, servo: ServoControl, pwm):
         """
         Abstract method to send a command to a servo.
@@ -122,16 +130,9 @@ class DriverServos(ABC):
         """
         pass
 
-    @abstractmethod
-    def read_feedback(self, servo: ServoControl):
-        """
-        Abstract method to read feedback from the servos.
-        Must return a feedback PWM value.
-
-        Args:
-            servo (ServoControl): Servo object containing servo attributes.
-        """
-        pass
+    def initialize(self):
+        """Call after construction to set up driver and internal flags."""
+        self.coms_active = self.setup_driver()
 
     def command_servos(self, command_dict: dict):
         """
@@ -278,7 +279,7 @@ class DriverServos(ABC):
         )
 
         if not longest_distance or longest_distance < self.distance_threshold_min:
-            speeds_allowed = {name: self.speed_min for name in servo_dict.keys()}
+            speeds_allowed.update({name: self.speed_min for name in servos_affected})
             return speeds_allowed
 
         # Compute allowed speed based on distance to travel
@@ -309,7 +310,7 @@ class DriverServos(ABC):
         servo = self.servos[name]
         angle_target = command + servo.default_position
 
-        angle_cmd, pwm_cmd = servo.reach_angle_direct(angle_target, speed)
+        pwm_cmd = servo.compute_command(angle_target, speed)
 
         if not self._validate_command(servo, pwm_cmd):
             return
