@@ -25,7 +25,6 @@ class TeleoperationVuerNode(Node):
         )  # Choices: "", "ros", "server", "ngrok"
         self.camera_source = CameraSource.from_input(self.camera_source)
 
-
         self.declare_parameter("frequency", 30)
         frequency = self.get_parameter("frequency").get_parameter_value().integer_value
 
