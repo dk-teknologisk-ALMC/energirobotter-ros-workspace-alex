@@ -21,6 +21,9 @@ def launch_setup(context, *args, **kwargs):
 
     launch_nodes = []
 
+    image_topic_left = "/zed/zed_node/left/image_rect_color/compressed"
+    image_topic_right = "/zed/zed_node/right/image_rect_color/compressed"
+
     if camera_source.perform(context) == "ngrok":
         webrtc_server_node = Node(
             package="webrtc_server_camera",
@@ -49,6 +52,10 @@ def launch_setup(context, *args, **kwargs):
         package="teleoperation",
         executable="teleoperation_vuer_node",
         output="screen",
+        remappings=[
+            ("/image_left", image_topic_left),
+            ("/image_right", image_topic_right),
+        ],
         parameters=[
             {"camera_source": camera_source},
         ],
