@@ -71,8 +71,8 @@ class ServoManagerNode(Node):
 
         # Hands
         json_files_hands = [
-            # f"{config_folder_path}/servo_hand_left_params.json",
-            # f"{config_folder_path}/servo_hand_right_params.json",
+            f"{config_folder_path}/servo_hand_left_params.json",
+            f"{config_folder_path}/servo_hand_right_params.json",
         ]
         self.servo_driver_hands = DriverWaveshare(
             json_files_hands, self.control_frequency, port_path="/dev/ttyUSB1"
@@ -99,14 +99,10 @@ class ServoManagerNode(Node):
                 servo = self.servo_driver_hands.servos[servo_name]
                 command = self.servo_commands_hands[servo_name]
 
-                self.get_logger().info(f"tracked angle: {command}")
-
                 angle_mapped = self.servo_driver_hands.map_finger_to_servo(
                     servo, command
                 )
                 self.servo_commands_hands[servo_name] = angle_mapped
-
-                self.get_logger().info(f"mapped angle: {angle_mapped}")
 
     def callback_timer(self):
         # Combine command dicts into one
