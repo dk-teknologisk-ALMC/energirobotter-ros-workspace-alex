@@ -17,7 +17,7 @@ class ServoManagerNode(Node):
         super().__init__("servo_manager_node")
 
         # Parameters
-        self.declare_parameter("control_frequency", 10.0)
+        self.declare_parameter("control_frequency", 5.0)
         self.control_frequency = (
             self.get_parameter("control_frequency").get_parameter_value().double_value
         )
