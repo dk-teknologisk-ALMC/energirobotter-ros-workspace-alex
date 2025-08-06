@@ -40,42 +40,18 @@ class CameraSource(Enum):
 
 
 class VuerApp(VRInterfaceApp):
-    def __init__(self, camera_enabled=False, stereo_enabled=False, ngrok_enabled=False):
+    def __init__(self, camera_source=None, stereo_enabled=False):
         VRInterfaceApp.__init__(self)
 
-        self.camera_enabled = camera_enabled
+        self.camera_source = CameraSource.from_input(camera_source, self.logger)
         self.stereo_enabled = stereo_enabled
-        self.ngrok_enabled = ngrok_enabled
-
-        vuer_host = "0.0.0.0"
-        vuer_port = 8012
-
-        # URIs
-        if camera_enabled:
-            self.offer_route = "/offer"
-            self.webrtc_server_uri = "http://localhost:8080" + self.offer_route
-
-        # Establish ngrok connectivity
-        if ngrok_enabled:
-            self.ngrok_listener = ngrok.forward(
-                vuer_port,
-                domain="gladly-destined-lacewing.ngrok-free.app",
-                authtoken_from_env=True,
-            )
-            self.logger.info("----------------------------------------")
-            self.logger.info(f"Connect to URL in headset: {self.ngrok_listener.url()}")
-            self.logger.info("----------------------------------------")
-        else:
-            self.logger.info("----------------------------------------")
-            self.logger.info(
-                f"Connect to URL in headset: http://localhost:{vuer_port} (wired setup, remember to run `adb reverse tcp:{vuer_port} tcp:{vuer_port}` on connected computer)"
-            )
-            self.logger.info("----------------------------------------")
+        self.vuer_host = "0.0.0.0"
+        self.vuer_port = 8012
 
         # Initialize the Vuer app
         self.app_vuer = Vuer(
-            host=vuer_host,
-            port=vuer_port,
+            host=self.vuer_host,
+            port=self.vuer_port,
             free_port=True,
             static_root=".",
             queries=dict(
@@ -87,23 +63,46 @@ class VuerApp(VRInterfaceApp):
         self.app_vuer.add_handler("HAND_MOVE")(self.on_hand_move)
         self.app_vuer.spawn(start=False)(self.session_manager)
 
-        # Add WebRTC offer proxy route
-        if camera_enabled:
-            self.app_vuer._route("/offer", self.proxy_offer, method="POST")
+        # Camera setup, server configs, and URIs
+        match self.camera_source:
+
+            case CameraSource.NGROK:
+                # Establish ngrok connectivity
+                self.ngrok_listener = ngrok.forward(
+                    self.vuer_port,
+                    domain="gladly-destined-lacewing.ngrok-free.app",
+                    authtoken_from_env=True,
+                )
+
+                self.offer_route = "/offer"
+                self.webrtc_server_uri_local = (
+                    "http://localhost:8080" + self.offer_route
+                )
+                self.webrtc_server_uri = self.ngrok_listener.url() + self.offer_route
+
+                # Add WebRTC offer proxy route
+                self.app_vuer._route("/offer", self.proxy_offer, method="POST")
+
+                self.logger.info("----------------------------------------")
+                self.logger.info(
+                    f"Connect to URL in headset: {self.ngrok_listener.url()}"
+                )
+                self.logger.info("----------------------------------------")
+
+            case _:
+                self.log_localhost_instructions()
 
         # Start the Vuer app in a separate process
         self.process = Process(target=self.run)
         self.process.start()
 
-    def run(self):
-        """Run the Vuer app"""
-        try:
-            asyncio.get_running_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        self.app_vuer.run()
+    def log_localhost_instructions(self):
+        self.logger.info("----------------------------------------")
+        self.logger.info(
+            f"Connect to URL in headset: http://localhost:{self.vuer_port} "
+            "(wired setup, remember to run `adb reverse tcp:{vuer_port} tcp:{vuer_port}` on connected computer)"
+        )
+        self.logger.info("----------------------------------------")
 
     async def proxy_offer(self, request):
         try:
@@ -135,6 +134,15 @@ class VuerApp(VRInterfaceApp):
             traceback.print_exc()
             return aiohttp.web.Response(status=500, text=f"Proxy error: {e}")
 
+    def run(self):
+        """Run the Vuer app"""
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        self.app_vuer.run()
     async def on_camera_move(self, event, session: VuerSession):
         """Handle head tracking data"""
 
@@ -175,13 +183,7 @@ class VuerApp(VRInterfaceApp):
         session.set @ DefaultScene(frameloop="always")
 
         # Setup camera stream plane
-        if self.camera_enabled:
-
-            # Choose source
-            if self.ngrok_enabled:
-                stream_src = self.ngrok_listener.url() + self.offer_route
-            else:
-                stream_src = self.webrtc_server_uri
+        if self.camera_source in [CameraSource.SERVER, CameraSource.NGROK]:
 
             # Create camera stream plane
             VideoPlaneClass = (
@@ -189,7 +191,7 @@ class VuerApp(VRInterfaceApp):
             )
 
             session.upsert @ VideoPlaneClass(
-                src=stream_src,
+                src=self.webrtc_server_uri,
                 key="video-quad",
                 height=1.5,
                 aspect=16 / 9,

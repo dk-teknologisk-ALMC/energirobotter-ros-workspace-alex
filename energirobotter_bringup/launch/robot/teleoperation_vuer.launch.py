@@ -15,22 +15,26 @@ package_name = "energirobotter_bringup"
 
 def launch_setup(context, *args, **kwargs):
     camera_enabled = LaunchConfiguration("camera_enabled")
+    camera_source = LaunchConfiguration("camera_source")
     stereo_enabled = LaunchConfiguration("stereo_enabled")
     ik_enabled = LaunchConfiguration("ik_enabled")
-    ngrok_enabled = LaunchConfiguration("ngrok_enabled")
     rviz = LaunchConfiguration("rviz")
 
-    webrtc_server_node = Node(
-        package="webrtc_server_camera",
-        executable="webrtc_server_camera_node",
-        output="screen",
-        parameters=[
-            {"stereo_enabled": stereo_enabled},
-        ],
-        condition=IfCondition(
-            camera_enabled,
-        ),
-    )
+    launch_nodes = []
+
+    if camera_source.perform(context) == "ngrok":
+        webrtc_server_node = Node(
+            package="webrtc_server_camera",
+            executable="webrtc_server_camera_node",
+            output="screen",
+            parameters=[
+                {"stereo_enabled": stereo_enabled},
+            ],
+            condition=IfCondition(
+                camera_enabled,
+            ),
+        )
+        launch_nodes.append(webrtc_server_node)
 
     ik_control_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -50,17 +54,14 @@ def launch_setup(context, *args, **kwargs):
         executable="teleoperation_vuer_node",
         output="screen",
         parameters=[
-            {"camera_enabled": camera_enabled},
-            {"stereo_enabled": stereo_enabled},
-            {"ngrok_enabled": ngrok_enabled},
+            {"camera_source": camera_source},
         ],
     )
 
     return [
-        webrtc_server_node,
         ik_control_launch,
         teleoperation_vuer_node,
-    ]
+    ] + launch_nodes
 
 
 def generate_launch_description():
@@ -73,6 +74,12 @@ def generate_launch_description():
                 choices=["true", "false"],
             ),
             DeclareLaunchArgument(
+                "camera_source",
+                default_value="",
+                description="Choose alternative camera that Zed, ex. webcam or a static image (mock).",
+                choices=["", "ros", "server", "ngrok"],
+            ),
+            DeclareLaunchArgument(
                 "stereo_enabled",
                 default_value="false",
                 description="Run teleoperation with or without stereo.",
@@ -82,12 +89,6 @@ def generate_launch_description():
                 "ik_enabled",
                 default_value="false",
                 description="Run teleoperation with or without publishing IK.",
-                choices=["true", "false"],
-            ),
-            DeclareLaunchArgument(
-                "ngrok_enabled",
-                default_value="false",
-                description="Run teleoperation with or without ngrok.",
                 choices=["true", "false"],
             ),
             DeclareLaunchArgument(

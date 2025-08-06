@@ -7,7 +7,7 @@ from geometry_msgs.msg import PoseStamped, Pose, Point, Quaternion
 from std_msgs.msg import Header
 from sensor_msgs.msg import JointState
 
-from teleoperation.src.vuer_app import VuerApp
+from teleoperation.src.vuer_app import CameraSource, VuerApp
 from teleoperation.src.tracking_transformer import TrackingTransformer
 from teleoperation.src.tracking_filter import TrackingFilter
 from teleoperation.src.tracking_collision_avoidance import TrackingCollisionAvoidance
@@ -19,23 +19,15 @@ class TeleoperationVuerNode(Node):
         super().__init__("teleoperation_vuer_node")
 
         # Parameters
-        self.declare_parameter("camera_source", "none")
-        camera_source = (
+        self.declare_parameter("camera_source", "")
+        self.camera_source = (
             self.get_parameter("camera_source").get_parameter_value().string_value
-        )  # Choices: "none", "ngrok", "ros", "server"
+        )  # Choices: "", "ros", "server", "ngrok"
+        self.camera_source = CameraSource.from_input(self.camera_source)
 
-        self.declare_parameter("camera_enabled", False)
-        camera_enabled = (
-            self.get_parameter("camera_enabled").get_parameter_value().bool_value
-        )
 
         self.declare_parameter("frequency", 30)
         frequency = self.get_parameter("frequency").get_parameter_value().integer_value
-
-        self.declare_parameter("ngrok_enabled", False)
-        ngrok_enabled = (
-            self.get_parameter("ngrok_enabled").get_parameter_value().bool_value
-        )
 
         self.declare_parameter("stereo_enabled", False)
         stereo_enabled = (
@@ -59,7 +51,7 @@ class TeleoperationVuerNode(Node):
         # Variables
         self.cv_bridge = CvBridge()
 
-        self.vuer_app = VuerApp(camera_enabled, stereo_enabled, ngrok_enabled)
+        self.vuer_app = VuerApp(self.camera_source, stereo_enabled)
 
         self.tracking_transformer = TrackingTransformer()
         self.tracking_filter_left = TrackingFilter()
