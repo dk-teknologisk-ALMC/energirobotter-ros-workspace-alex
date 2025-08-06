@@ -41,6 +41,13 @@ def launch_setup(context, *args, **kwargs):
 
         launch_nodes.append(zed_camera_launch)
 
+    # --- Test cameras ---
+
+    if use_compressed.perform(context) == "true":
+        image_topic = "/zed/zed_node/left/image_rect_color/compressed"
+    else:
+        image_topic = "/zed/zed_node/left/image_rect_color"
+
     if camera_mode.perform(context) == "webcam":
         webcam_node = Node(
             package="mock_camera",
@@ -54,10 +61,6 @@ def launch_setup(context, *args, **kwargs):
         launch_nodes.append(webcam_node)
 
     if camera_mode.perform(context) == "mock":
-        if use_compressed.perform(context) == "true":
-            image_topic = "/zed/zed_node/left/image_rect_color/compressed"
-        else:
-            image_topic = "/zed/zed_node/left/image_rect_color"
 
         mock_camera_node = Node(
             package="mock_camera",
