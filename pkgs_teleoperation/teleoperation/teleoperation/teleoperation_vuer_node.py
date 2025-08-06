@@ -19,6 +19,11 @@ class TeleoperationVuerNode(Node):
         super().__init__("teleoperation_vuer_node")
 
         # Parameters
+        self.declare_parameter("camera_source", "none")
+        camera_source = (
+            self.get_parameter("camera_source").get_parameter_value().string_value
+        )  # Choices: "none", "ngrok", "ros", "server"
+
         self.declare_parameter("camera_enabled", False)
         camera_enabled = (
             self.get_parameter("camera_enabled").get_parameter_value().bool_value
