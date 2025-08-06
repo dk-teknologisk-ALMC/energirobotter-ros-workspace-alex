@@ -8,6 +8,7 @@ from aiohttp.web_response import Response
 import asyncio
 from cgi import parse_header
 from multiprocessing import Process
+from enum import Enum
 import ngrok
 import numpy as np
 import traceback
@@ -15,6 +16,27 @@ from vuer import Vuer, VuerSession
 from vuer.schemas import DefaultScene, Hands, WebRTCVideoPlane, WebRTCStereoVideoPlane
 
 from teleoperation.src.vr_interface_app import VRInterfaceApp
+
+
+class CameraSource(Enum):
+    NONE = None
+    ROS = "ros"
+    SERVER = "server"
+    NGROK = "ngrok"
+
+    @classmethod
+    def from_input(cls, value, logger=None):
+        if isinstance(value, cls):
+            return value
+        if isinstance(value, str):
+            try:
+                return cls(value)
+            except ValueError:
+                if logger:
+                    logger.warning(
+                        f"Camera source `{value}` not valid, starting without camera"
+                    )
+        return cls.NONE
 
 
 class VuerApp(VRInterfaceApp):
