@@ -7,13 +7,19 @@ import aiohttp
 from aiohttp.web_response import Response
 import asyncio
 from cgi import parse_header
-from multiprocessing import Process
 from enum import Enum
+from multiprocessing import Process, Queue
 import ngrok
 import numpy as np
 import traceback
 from vuer import Vuer, VuerSession
-from vuer.schemas import DefaultScene, Hands, WebRTCVideoPlane, WebRTCStereoVideoPlane
+from vuer.schemas import (
+    DefaultScene,
+    Hands,
+    ImageBackground,
+    WebRTCVideoPlane,
+    WebRTCStereoVideoPlane,
+)
 
 from teleoperation.src.vr_interface_app import VRInterfaceApp
 
@@ -59,12 +65,17 @@ class VuerApp(VRInterfaceApp):
                 collapseMenu=True,
             ),
         )
+
         self.app_vuer.add_handler("CAMERA_MOVE")(self.on_camera_move)
         self.app_vuer.add_handler("HAND_MOVE")(self.on_hand_move)
         self.app_vuer.spawn(start=False)(self.session_manager)
 
         # Camera setup, server configs, and URIs
         match self.camera_source:
+            case CameraSource.ROS:
+                self.queue_image_left = Queue(maxsize=2)
+                self.queue_image_right = Queue(maxsize=2)
+                self.log_localhost_instructions()
 
             case CameraSource.NGROK:
                 # Establish ngrok connectivity
@@ -143,6 +154,21 @@ class VuerApp(VRInterfaceApp):
             asyncio.set_event_loop(loop)
 
         self.app_vuer.run()
+
+    def update_frames(self, left, right):
+        """Update the image queues with new frames."""
+
+        if self.camera_source != CameraSource.ROS:
+            return
+
+        if self.queue_image_left.full():
+            self.queue_image_left.get()
+        self.queue_image_left.put(left)
+
+        if self.queue_image_right.full():
+            self.queue_image_right.get()
+        self.queue_image_right.put(right)
+
     async def on_camera_move(self, event, session: VuerSession):
         """Handle head tracking data"""
 
@@ -207,6 +233,62 @@ class VuerApp(VRInterfaceApp):
 
         # Session loop
         while len(self.app_vuer.ws) > 0:
+
+            if self.camera_source in [CameraSource.ROS]:
+                # Left camera
+                if self.queue_image_left.empty():
+                    self.logger.info("Left image empty, skipping frame update")
+                    continue
+
+                image_left = self.queue_image_left.get(block=True)
+
+                if image_left is None:
+                    self.logger.info("Left image is None, skipping frame update")
+                    continue
+
+                # Right camera
+                if self.stereo_enabled:
+                    if self.queue_image_right.empty():
+                        self.logger.debug("Right image empty, skipping frame update")
+                        continue
+
+                    image_right = self.queue_image_right.get(block=True)
+
+                    if image_right is None:
+                        self.logger.debug("Right image is None, skipping frame update")
+                        continue
+                else:
+                    image_right = image_left
+
+                # Session content
+                session.upsert(
+                    [
+                        ImageBackground(
+                            image_left,
+                            aspect=1.778,
+                            height=1,
+                            distanceToCamera=1,
+                            layers=1,
+                            format="jpeg",
+                            quality=90,
+                            key="background-left",
+                            interpolate=True,
+                        ),
+                        ImageBackground(
+                            image_right,
+                            aspect=1.778,
+                            height=1,
+                            distanceToCamera=1,
+                            layers=2,
+                            format="jpeg",
+                            quality=90,
+                            key="background-right",
+                            interpolate=True,
+                        ),
+                    ],
+                    to="bgChildren",
+                )
+
             # 'jpeg' encoding should give about 30fps with a 16ms wait in-between.
             await asyncio.sleep(0.016 * 2)
 
