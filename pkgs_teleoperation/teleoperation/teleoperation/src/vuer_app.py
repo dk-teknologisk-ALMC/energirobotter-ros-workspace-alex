@@ -198,7 +198,7 @@ class VuerApp(VRInterfaceApp):
             return
 
         # Initialize the session
-        session.set @ DefaultScene(grid=False, show_helper=True, frameloop="always")
+        session.set @ DefaultScene(grid=False, show_helper=False, frameloop="always")
 
         # Setup camera stream plane
         if self.camera_source in [CameraSource.SERVER, CameraSource.NGROK]:
