@@ -54,14 +54,7 @@ class VuerApp(VRInterfaceApp):
 
         # Initialize the Vuer app
         self.app_vuer = Vuer(
-            host=self.vuer_host,
-            port=self.vuer_port,
-            free_port=True,
-            static_root=".",
-            queries=dict(
-                grid=False,
-                collapseMenu=True,
-            ),
+            host=self.vuer_host, port=self.vuer_port, free_port=True, static_root="."
         )
 
         self.app_vuer.add_handler("CAMERA_MOVE")(self.on_camera_move)
@@ -205,7 +198,7 @@ class VuerApp(VRInterfaceApp):
             return
 
         # Initialize the session
-        session.set @ DefaultScene(frameloop="always")
+        session.set @ DefaultScene(grid=False, show_helper=True, frameloop="always")
 
         # Setup camera stream plane
         if self.camera_source in [CameraSource.SERVER, CameraSource.NGROK]:
