@@ -68,6 +68,7 @@ class TeleoperationVuerNode(Node):
         self.tracking_transformer = TrackingTransformer()
         self.tracking_filter_left = TrackingFilter()
         self.tracking_filter_right = TrackingFilter()
+        self.tracking_filter_fingers = TrackingFilter()
         self.tracking_collision_avoidance = TrackingCollisionAvoidance()
 
     def callback_image_left(self, msg):
@@ -126,6 +127,7 @@ class TeleoperationVuerNode(Node):
         # Filter raw tracking
         left_wrist_mat = self.tracking_filter_left.low_pass(left_wrist_mat)
         right_wrist_mat = self.tracking_filter_right.low_pass(right_wrist_mat)
+        hand_angles = self.tracking_filter_fingers.low_pass_joints(hand_angles)
 
         # Avoid hand collision
         left_wrist_mat, right_wrist_mat = self.tracking_collision_avoidance.process(

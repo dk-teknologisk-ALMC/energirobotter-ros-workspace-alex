@@ -30,6 +30,22 @@ class TrackingFilter:
             butter_order, butter_cutoff, btype="low", analog=False
         )
 
+        self.filtered_joint_angles = {}  # For filtering joint dicts
+
+    def low_pass_joints(self, joint_dict):
+        """
+        Applies a first-order low-pass filter (exponential smoothing) to a dictionary of joint angles.
+        :param joint_dict: Dict[str, float] of joint names and raw angles
+        :return: Dict[str, float] of filtered angles
+        """
+        for joint, raw_value in joint_dict.items():
+            prev_value = self.filtered_joint_angles.get(joint, raw_value)
+            filtered_value = (
+                self.alpha_low_pass * raw_value + (1 - self.alpha_low_pass) * prev_value
+            )
+            self.filtered_joint_angles[joint] = filtered_value
+        return dict(self.filtered_joint_angles)
+
     def moving_average(self, tf_matrix):
         """Applies a simple moving average filter"""
         self.moving_avg_queue.append(tf_matrix)
