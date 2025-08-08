@@ -36,7 +36,7 @@ rosdep install --from-paths src -y --ignore-src
 
 ## Slider Control
 
-Creates panel with sliders for each joint, to test in a more controlled way.
+Creates panel with sliders for each joint, to test specific angles.
 
 
 ### Launch File

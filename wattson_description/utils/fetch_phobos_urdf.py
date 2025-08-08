@@ -2,7 +2,7 @@ import shutil
 import re
 
 # --- Configuration ---
-source_file = "/home/drone/energinet/Files/wattson_model/Wattson/urdf/Wattson.urdf"
+source_file = "/home/drone/energinet/Files/wattson_model/V1/Wattson/urdf/Wattson.urdf"
 destination_file = "/home/drone/energinet/elrik_ws/src/energirobotter-ros-workspace/wattson_description/urdf/phobos_generated.urdf"
 
 # --- Step 1: Copy file ---

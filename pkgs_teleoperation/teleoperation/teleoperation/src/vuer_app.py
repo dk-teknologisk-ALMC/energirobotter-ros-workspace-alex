@@ -39,9 +39,7 @@ class CameraSource(Enum):
                 return cls(value)
             except ValueError:
                 if logger:
-                    logger.warning(
-                        f"Camera source `{value}` not valid, starting without camera"
-                    )
+                    logger.warning(f"Camera source `{value}` not valid")
         return cls.NONE
 
 
@@ -101,6 +99,7 @@ class VuerApp(VRInterfaceApp):
                 self.logger.info("----------------------------------------")
 
             case _:
+                self.logger.info("No camera source, starting without camera...")
                 self.log_localhost_instructions()
 
         # Start the Vuer app in a separate process
@@ -110,7 +109,7 @@ class VuerApp(VRInterfaceApp):
     def log_localhost_instructions(self):
         self.logger.info("----------------------------------------")
         self.logger.info(
-            f"Connect to URL in headset: http://localhost:{self.vuer_port} "
+            f"Connect to URL in headset: http://localhost:{self.vuer_port}\n"
             "(wired setup, remember to run `adb reverse tcp:{vuer_port} tcp:{vuer_port}` on connected computer)"
         )
         self.logger.info("----------------------------------------")
