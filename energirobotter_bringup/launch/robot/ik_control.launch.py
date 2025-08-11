@@ -43,8 +43,8 @@ def launch_setup(context, *args, **kwargs):
     )
 
     ik_node = Node(
-        package="elrik_kdl_kinematics",
-        executable="elrik_kdl_kinematics_node",
+        package="kinematics_manager",
+        executable="kinematics_manager_node",
         output="screen",
     )
 
