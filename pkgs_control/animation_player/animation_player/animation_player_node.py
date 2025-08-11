@@ -1,6 +1,5 @@
 import rclpy
 from rclpy.node import Node
-import std_msgs.msg
 from sensor_msgs.msg import JointState
 
 from animation_player.src import csv_reader
