@@ -54,14 +54,7 @@ class VuerApp(VRInterfaceApp):
 
         # Initialize the Vuer app
         self.app_vuer = Vuer(
-            host=self.vuer_host,
-            port=self.vuer_port,
-            free_port=True,
-            static_root=".",
-            queries=dict(
-                grid=False,
-                collapseMenu=True,
-            ),
+            host=self.vuer_host, port=self.vuer_port, free_port=True, static_root="."
         )
 
         self.app_vuer.add_handler("CAMERA_MOVE")(self.on_camera_move)
@@ -205,7 +198,7 @@ class VuerApp(VRInterfaceApp):
             return
 
         # Initialize the session
-        session.set @ DefaultScene(frameloop="always")
+        session.set @ DefaultScene(grid=False, show_helper=False, frameloop="always")
 
         # Setup camera stream plane
         if self.camera_source in [CameraSource.SERVER, CameraSource.NGROK]:
@@ -236,13 +229,13 @@ class VuerApp(VRInterfaceApp):
             if self.camera_source in [CameraSource.ROS]:
                 # Left camera
                 if self.queue_image_left.empty():
-                    self.logger.info("Left image empty, skipping frame update")
+                    self.logger.debug("Left image empty, skipping frame update")
                     continue
 
                 image_left = self.queue_image_left.get(block=True)
 
                 if image_left is None:
-                    self.logger.info("Left image is None, skipping frame update")
+                    self.logger.debug("Left image is None, skipping frame update")
                     continue
 
                 # Right camera

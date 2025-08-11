@@ -58,6 +58,7 @@ def launch_setup(context, *args, **kwargs):
         ],
         parameters=[
             {"camera_source": camera_source},
+            {"stereo_enabled": stereo_enabled},
         ],
     )
 

@@ -35,7 +35,9 @@ class TrackingTransformer:
 
         # Transform constants
         self.grd_yup2grd_zup = self._create_matrix(rotation=(90, 0, 0))
-        self.torso2head = self._create_matrix(translation=(0, 0.25, 0.374605))
+        self.torso2head = self._create_matrix(
+            translation=(0, head_y_offset := 0.1, head_z_offset := 0.3)
+        )
 
         self.hand2gripper_left = self._create_matrix(rotation=(0, 90, 0))
         self.hand2gripper_right = self._create_matrix(rotation=(0, -90, 180))
