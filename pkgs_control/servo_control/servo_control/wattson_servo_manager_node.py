@@ -52,8 +52,12 @@ class ServoManagerNode(Node):
         # DEBUG END
 
         # Timers
-        self.timer = self.create_timer(
-            1.0 / self.control_frequency, self.callback_timer
+        self.timer_arms = self.create_timer(
+            1.0 / self.control_frequency, self.callback_timer_arms
+        )
+
+        self.timer_hands = self.create_timer(
+            1.0 / (1.0 * self.control_frequency), self.callback_timer_hands
         )
 
         # Configure servo managers
@@ -104,35 +108,45 @@ class ServoManagerNode(Node):
                 )
                 self.servo_commands_hands[servo_name] = angle_mapped
 
-    def callback_timer(self):
+    def callback_timer_arms(self):
         # Combine command dicts into one
         self.servo_commands = self.servo_commands_arms | self.servo_commands_hands
 
         if not self.servo_commands:
-            self.get_logger().info(f"No commands received yet...", once=True)
+            self.get_logger().info(f"No arm commands received yet...", once=True)
         else:
-            self.get_logger().info(f"Commands received!", once=True)
+            self.get_logger().info(f"Arm commands received!", once=True)
 
         # Update servos
         self.servo_driver_arms.update_feedback()
         self.servo_driver_arms.command_servos(self.servo_commands)
         self.servo_commands_arms = {}
 
+        # # DEBUG
+        # temperatures = self.servo_driver_arms.get_servo_temperatures()
+        # # positions = self.servo_driver_arms.get_servo_angles()
+
+        # msg = JointState()
+        # msg.header.stamp = self.get_clock().now().to_msg()
+        # msg.name = list(temperatures.keys())
+        # msg.position = list(temperatures.values())
+
+        # self.pub_speeds.publish(msg)
+        # # DEBUG END
+
+    def callback_timer_hands(self):
+        # Combine command dicts into one
+        self.servo_commands = self.servo_commands_arms | self.servo_commands_hands
+
+        if not self.servo_commands:
+            self.get_logger().info(f"No hand commands received yet...", once=True)
+        else:
+            self.get_logger().info(f"Hand commands received!", once=True)
+
+        # Update servos
         self.servo_driver_hands.update_feedback()
         self.servo_driver_hands.command_servos(self.servo_commands)
         self.servo_commands_hands = {}
-
-        # DEBUG
-        temperatures = self.servo_driver_arms.get_servo_temperatures()
-        # positions = self.servo_driver_arms.get_servo_angles()
-
-        msg = JointState()
-        msg.header.stamp = self.get_clock().now().to_msg()
-        msg.name = list(temperatures.keys())
-        msg.position = list(temperatures.values())
-
-        self.pub_speeds.publish(msg)
-        # DEBUG END
 
 
 def main(args=None):
