@@ -25,6 +25,7 @@ class DriverWaveshare(DriverServos):
     ):
         super().__init__(config_files)
 
+        self.control_frequency = control_frequency
         self.port_path = port_path
 
         self.servo_models = []
@@ -47,7 +48,7 @@ class DriverWaveshare(DriverServos):
 
         self.loop_thread_write = threading.Thread(
             target=self._loop_sync_commands,
-            args=(self._sync_commands_write, control_frequency),
+            args=(self._sync_commands_write, self.control_frequency),
             daemon=True,
         )
 
@@ -112,13 +113,15 @@ class DriverWaveshare(DriverServos):
             # self.logger.info(f"Servo: {servo.servo_id}. Stopping pwm of: {pwm}")
             # return
 
+            servo_pwm_speed = int(servo.pwm_speed / self.control_frequency)
+
             for driver in self.driver_objects.values():
 
                 # Add SC position\moving speed\moving accc value to the Syncwrite parameter storage
                 scs_addparam_result = driver.SyncWritePos(
                     servo.servo_id,
                     pwm,
-                    SERVO_SPEED := servo.pwm_speed_max,
+                    SERVO_SPEED := servo_pwm_speed,
                     SERVO_ACC := 64,
                 )
 
