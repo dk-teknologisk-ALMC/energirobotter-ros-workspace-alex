@@ -81,11 +81,11 @@ class ServoControl:
         self.pwm_speed_max = self.angle_speed_to_hardware_pwm_speed(
             self.angle_speed_max, self.gear_ratio
         )
-
         self.pwm = self.angle_to_hardware_pwm(self.angle, self.gear_ratio)
         self.pwm_speed = self.angle_speed_to_hardware_pwm_speed(
             self.angle_speed, self.gear_ratio
         )
+
         self.temperature = 0.0
 
         self.time_prev = None
@@ -207,6 +207,7 @@ class ServoControl:
         if not self.feedback_enabled:
             self.angle = angle_cmd
             self.angle_speed = abs(angle_vel)
+
             self.pwm = self.angle_to_hardware_pwm(self.angle, self.gear_ratio)
             self.pwm_speed = self.angle_speed_to_hardware_pwm_speed(
                 self.angle_speed, self.gear_ratio
