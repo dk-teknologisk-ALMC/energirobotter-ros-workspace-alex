@@ -120,7 +120,6 @@ class ServoManagerNode(Node):
         # Update servos
         self.servo_driver_arms.update_feedback()
         self.servo_driver_arms.command_servos(self.servo_commands)
-        self.servo_commands_arms = {}
 
         # # DEBUG
         # temperatures = self.servo_driver_arms.get_servo_temperatures()
@@ -146,7 +145,6 @@ class ServoManagerNode(Node):
         # Update servos
         self.servo_driver_hands.update_feedback()
         self.servo_driver_hands.command_servos(self.servo_commands)
-        self.servo_commands_hands = {}
 
 
 def main(args=None):
