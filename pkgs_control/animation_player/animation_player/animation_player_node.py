@@ -1,3 +1,5 @@
+import numpy as np
+
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import JointState
@@ -44,7 +46,7 @@ class AnimationPlayerNode(Node):
     def callback_timer(self):
 
         row_data = self.csv_reader.get_next_row()
-        joint_data = [float(x) for x in row_data[1:]]
+        joint_data = [np.deg2rad(float(x)) for x in row_data[1:]]
 
         self.joint_state_msg.header.stamp = self.get_clock().now().to_msg()
         self.joint_state_msg.header.frame_id = row_data[0]
