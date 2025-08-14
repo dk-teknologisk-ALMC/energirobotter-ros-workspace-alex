@@ -22,6 +22,7 @@ class DriverWaveshare(DriverServos):
         self,
         config_files,
         control_frequency,
+        feedback_enabled=False,
         port_path="/dev/ttyUSB0",
         baudrate=115200,
         debug=False,
@@ -29,6 +30,7 @@ class DriverWaveshare(DriverServos):
         super().__init__(config_files)
 
         self.control_frequency = control_frequency
+        self.feedback_enabled = feedback_enabled
         self.port_path = port_path
         self.baudrate = baudrate
 
@@ -86,7 +88,9 @@ class DriverWaveshare(DriverServos):
             )
 
             # Start threads after driver setup
-            self.loop_thread_read.start()
+            if self.feedback_enabled:
+                self.loop_thread_read.start()
+
             self.loop_thread_write.start()
 
             self.logger.info("Serial communication successful")
@@ -97,6 +101,9 @@ class DriverWaveshare(DriverServos):
             return False
 
     def read_feedback(self, servo: ServoControl):
+
+        if not self.feedback_enabled:
+            return
 
         if not "ST3215" in self.driver_objects:
             return
@@ -143,6 +150,9 @@ class DriverWaveshare(DriverServos):
             time.sleep(max(0, interval - elapsed))
 
     def _sync_commands_read(self):
+
+        if not self.feedback_enabled:
+            return
 
         if not "ST3215" in self.driver_objects:
             return
