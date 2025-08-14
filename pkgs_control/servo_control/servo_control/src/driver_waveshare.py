@@ -115,7 +115,7 @@ class DriverWaveshare(DriverServos):
             return feedback
 
         except Exception as e:
-            self.logger.error(f"Failed to read feedback: {e}")
+            self.logger.debug(f"Failed to read feedback: {e}")
             return None
 
     def write_command(self, servo: ServoControl, pwm):
@@ -136,7 +136,7 @@ class DriverWaveshare(DriverServos):
                 )
 
                 if scs_addparam_result != True:
-                    self.logger.warning(
+                    self.logger.debug(
                         f"groupSyncWrite addparam failed, servo ID: {servo.servo_id}"
                     )
 
