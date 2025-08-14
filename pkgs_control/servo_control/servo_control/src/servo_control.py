@@ -92,6 +92,9 @@ class ServoControl:
         self.error_acc = 0.0
         self.error_prev = 0.0
 
+        self.velocity_samples = []
+        self.vel_avg_window = 3
+
     def set_feedback_angle(self, feedback_angle):
         """
         Updates the servo's angle using external feedback.
@@ -191,7 +194,14 @@ class ServoControl:
         self.time_prev = time.time()
 
         angle_delta = angle_target - self.angle
-        angle_vel = np.sign(angle_delta) * speed_max if angle_delta != 0 else 0
+
+        raw_vel = angle_delta / t_d
+        self.velocity_samples.append(raw_vel)
+
+        if len(self.velocity_samples) > self.vel_avg_window:
+            self.velocity_samples.pop(0)
+
+        angle_vel = sum(self.velocity_samples) / len(self.velocity_samples)
         angle_vel = self.limit_speed(angle_vel, speed_max)
         angle_cmd = self.angle + angle_vel * t_d
 
