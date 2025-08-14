@@ -11,8 +11,6 @@ from .utils import interval_map
 from servo_control.src.driver_servos import DriverServos
 from servo_control.src.servo_control import ServoControl
 
-BAUDRATE = 115200
-
 supported_servos = {
     "ST3215": sms_sts,
     "SC09": scscl,
@@ -21,12 +19,18 @@ supported_servos = {
 
 class DriverWaveshare(DriverServos):
     def __init__(
-        self, config_files, control_frequency, port_path="/dev/ttyUSB0", debug=False
+        self,
+        config_files,
+        control_frequency,
+        port_path="/dev/ttyUSB0",
+        baudrate=115200,
+        debug=False,
     ):
         super().__init__(config_files)
 
         self.control_frequency = control_frequency
         self.port_path = port_path
+        self.baudrate = baudrate
 
         self.servo_models = []
         for config in config_files:
@@ -67,7 +71,7 @@ class DriverWaveshare(DriverServos):
                 self.logger.error("Failed to open port")
                 return False
 
-            if not self.port_handler.setBaudRate(BAUDRATE):
+            if not self.port_handler.setBaudRate(self.baudrate):
                 self.logger.error("Failed to set baud rate")
                 return False
 
