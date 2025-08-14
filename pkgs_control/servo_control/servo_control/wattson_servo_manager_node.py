@@ -70,6 +70,7 @@ class ServoManagerNode(Node):
         self.servo_driver_arms = DriverWaveshare(
             json_files_arms,
             self.control_frequency,
+            port_path="/dev/ttyUSB0",
             baudrate=921600,
         )
 
