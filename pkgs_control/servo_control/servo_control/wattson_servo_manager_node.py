@@ -17,7 +17,7 @@ class ServoManagerNode(Node):
         super().__init__("servo_manager_node")
 
         # Parameters
-        self.declare_parameter("control_frequency", 5.0)
+        self.declare_parameter("control_frequency", 10.0)
         self.control_frequency = (
             self.get_parameter("control_frequency").get_parameter_value().double_value
         )
@@ -62,16 +62,31 @@ class ServoManagerNode(Node):
 
         # Configure servo managers
         # Arms
-        json_files_arms = [
+        json_files_arms_left = [
             f"{config_folder_path}/servo_arm_left_params.json",
+        ]
+
+        self.servo_driver_arms_left = DriverWaveshare(
+            json_files_arms_left,
+            self.control_frequency,
+            port_path="/dev/ttyUSB0",
+            baudrate=921600,
+        )
+
+        self.servo_driver_arms_left.initialize()
+
+        json_files_arms_right = [
             f"{config_folder_path}/servo_arm_right_params.json",
         ]
 
-        self.servo_driver_arms = DriverWaveshare(
-            json_files_arms, self.control_frequency, port_path="/dev/ttyUSB0"
+        self.servo_driver_arms_right = DriverWaveshare(
+            json_files_arms_right,
+            self.control_frequency,
+            port_path="/dev/ttyUSB1",
+            baudrate=921600,
         )
 
-        self.servo_driver_arms.initialize()
+        self.servo_driver_arms_right.initialize()
 
         # Hands
         json_files_hands = [
@@ -79,7 +94,10 @@ class ServoManagerNode(Node):
             f"{config_folder_path}/servo_hand_right_params.json",
         ]
         self.servo_driver_hands = DriverWaveshare(
-            json_files_hands, self.control_frequency, port_path="/dev/ttyUSB1"
+            json_files_hands,
+            self.control_frequency,
+            port_path="/dev/ttyUSB2",
+            baudrate=921600,
         )
         self.servo_driver_hands.initialize()
 
@@ -118,9 +136,11 @@ class ServoManagerNode(Node):
             self.get_logger().info(f"Arm commands received!", once=True)
 
         # Update servos
-        self.servo_driver_arms.update_feedback()
-        self.servo_driver_arms.command_servos(self.servo_commands)
-        self.servo_commands_arms = {}
+        self.servo_driver_arms_left.update_feedback()
+        self.servo_driver_arms_left.command_servos(self.servo_commands)
+
+        self.servo_driver_arms_right.update_feedback()
+        self.servo_driver_arms_right.command_servos(self.servo_commands)
 
         # # DEBUG
         # temperatures = self.servo_driver_arms.get_servo_temperatures()
@@ -146,7 +166,6 @@ class ServoManagerNode(Node):
         # Update servos
         self.servo_driver_hands.update_feedback()
         self.servo_driver_hands.command_servos(self.servo_commands)
-        self.servo_commands_hands = {}
 
 
 def main(args=None):
