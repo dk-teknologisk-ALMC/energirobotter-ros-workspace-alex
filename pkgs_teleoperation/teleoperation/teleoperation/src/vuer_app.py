@@ -212,7 +212,7 @@ class VuerApp(VRInterfaceApp):
                 src=self.webrtc_server_uri,
                 key="video-quad",
                 height=1.5,
-                aspect=16 / 9,
+                aspect=9 / 16,
                 fixed=True,
                 position=[0, 1.0, -1.5],
                 rotation=[np.deg2rad(-20), 0, 0],
@@ -257,8 +257,8 @@ class VuerApp(VRInterfaceApp):
                     [
                         ImageBackground(
                             image_left,
-                            aspect=1.778,
-                            height=1,
+                            aspect=9 / 16,
+                            height=1.5,
                             distanceToCamera=1,
                             layers=1,
                             format="jpeg",
@@ -268,8 +268,8 @@ class VuerApp(VRInterfaceApp):
                         ),
                         ImageBackground(
                             image_right,
-                            aspect=1.778,
-                            height=1,
+                            aspect=9 / 16,
+                            height=1.5,
                             distanceToCamera=1,
                             layers=2,
                             format="jpeg",
