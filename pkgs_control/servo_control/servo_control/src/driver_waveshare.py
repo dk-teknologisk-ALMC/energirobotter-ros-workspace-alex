@@ -24,7 +24,7 @@ class DriverWaveshare(DriverServos):
         control_frequency,
         feedback_enabled=False,
         port_path="/dev/ttyUSB0",
-        baudrate=115200,
+        baudrate=921600,
         debug=False,
     ):
         super().__init__(config_files)
@@ -123,7 +123,6 @@ class DriverWaveshare(DriverServos):
         with self.lock:
             # self.logger.info(f"Servo: {servo.servo_id}. Stopping pwm of: {pwm}")
             # return
-
 
             for driver in self.driver_objects.values():
 
