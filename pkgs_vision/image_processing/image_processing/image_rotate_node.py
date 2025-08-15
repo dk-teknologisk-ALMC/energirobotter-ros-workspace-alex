@@ -45,40 +45,28 @@ class ImageRotateNode(Node):
 
         if self.use_compressed:
             cv_image = self.cv_bridge.compressed_imgmsg_to_cv2(
-                msg, desired_encoding="rgb8"
+                msg, desired_encoding="bgr8"
             )
         else:
-            cv_image = self.cv_bridge.imgmsg_to_cv2(msg, desired_encoding="rgb8")
+            cv_image = self.cv_bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
 
-        h, w = cv_image.shape[:2]
-
-        # Compute rotation matrix
-        center = (w // 2, h // 2)
-        M = cv2.getRotationMatrix2D(center, self.rotation_deg, 1.0)
-
-        # Compute bounding box after rotation
-        cos = np.abs(M[0, 0])
-        sin = np.abs(M[0, 1])
-        new_w = int((h * sin) + (w * cos))
-        new_h = int((h * cos) + (w * sin))
-
-        # Adjust rotation matrix to keep center
-        M[0, 2] += (w / 2) - new_w / 2
-        M[1, 2] += (h / 2) - new_h / 2
-
-        # Rotate image
-        rotated = cv2.warpAffine(cv_image, M, (new_w, new_h))
-
-        # Crop or resize back to original size
-        start_x = (rotated.shape[1] - w) // 2
-        start_y = (rotated.shape[0] - h) // 2
-        cropped = rotated[start_y : start_y + h, start_x : start_x + w]
+        # Rotate image by multiples of 90 degrees
+        match self.rotation_deg:
+            case 90:
+                rotated = cv2.rotate(cv_image, cv2.ROTATE_90_CLOCKWISE)
+            case 180:
+                rotated = cv2.rotate(cv_image, cv2.ROTATE_180)
+            case 270:
+                rotated = cv2.rotate(cv_image, cv2.ROTATE_90_COUNTERCLOCKWISE)
+            case _:
+                # 0° or unsupported angle, keep original
+                rotated = cv_image
 
         # Convert back to ROS Image and publish
         if self.use_compressed:
-            rotated_msg = self.cv_bridge.cv2_to_compressed_imgmsg(cropped)
+            rotated_msg = self.cv_bridge.cv2_to_compressed_imgmsg(rotated)
         else:
-            rotated_msg = self.cv_bridge.cv2_to_imgmsg(cropped, encoding="rgb8")
+            rotated_msg = self.cv_bridge.cv2_to_imgmsg(rotated, encoding="bgr8")
 
         rotated_msg.header = msg.header
         self.image_pub.publish(rotated_msg)
