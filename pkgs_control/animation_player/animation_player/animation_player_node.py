@@ -1,12 +1,8 @@
-from typing import Optional
+import numpy as np
 
 import rclpy
-from rclpy.lifecycle import Node
-from rclpy.lifecycle import Publisher
-from rclpy.lifecycle import State
-from rclpy.lifecycle import TransitionCallbackReturn
-from rclpy.timer import Timer
-import std_msgs.msg
+from rclpy.node import Node
+from sensor_msgs.msg import JointState
 
 from animation_player.src import csv_reader
 
@@ -17,7 +13,6 @@ class AnimationPlayerNode(Node):
         super().__init__("animation_player_node")
 
         # Parameters
-
         self.declare_parameter("fps", 24)
         self.fps = self.get_parameter("fps").get_parameter_value().integer_value
 
@@ -29,80 +24,36 @@ class AnimationPlayerNode(Node):
         # CSV file setup
         self.csv_reader = csv_reader.CSVReader(self.csv_file_path)
 
-        # Lifecycle Node timers and publishers
-        self.timer: Optional[Timer] = None
+        self.joints_names = []
+        for joint in self.csv_reader.get_header():
+            self.joints_names.append(joint)
 
-        self.joint_idx: int = {}
-        self.joint_publishers: Optional[Publisher] = {}
-        for idx, joint in enumerate(self.csv_reader.get_header()):
-            self.joint_idx[joint] = idx
-            self.joint_publishers[joint] = None
-
-        # Node variables
-
-    def __del__(self):
-        self.csv_reader.close()
-
-    ##################### Functions #####################
-
-    ##################### Callbacks #####################
-
-    def callback_timer(self):
-
-        if None in self.joint_publishers.values():
-            return
-
-        row = self.csv_reader.get_next_row()
-
-        for joint in self.joint_publishers.keys():
-            data = row[self.joint_idx[joint]]
-            self.joint_publishers[joint].publish(std_msgs.msg.Float64(data=float(data)))
-
-    ##################### Lifecyle Node Functions #####################
-
-    def on_configure(self, state: State) -> TransitionCallbackReturn:
-        self.get_logger().info("on_configure() is called.")
+        self.joints_names = self.joints_names[1:]  # Skip frame
 
         # Timers
         self.timer = self.create_timer(1.0 / self.fps, self.callback_timer)
 
         # Publishers
-        for joint in self.joint_publishers.keys():
-            self.joint_publishers[joint] = self.create_publisher(
-                std_msgs.msg.Float64, "/" + joint + "/set_error", 1
-            )
+        self.joint_state_pub = self.create_publisher(JointState, "/joint_states", 10)
 
-        self.get_logger().info("on_configure() successful")
+        # Node variables
+        self.joint_state_msg = JointState()
+        self.joint_state_msg.name = self.joints_names
 
-        return TransitionCallbackReturn.SUCCESS
+    def __del__(self):
+        self.csv_reader.close()
 
-    def on_activate(self, state: State) -> TransitionCallbackReturn:
-        self.get_logger().info("on_activate() is called.")
-        return super().on_activate(state)
+    def callback_timer(self):
 
-    def on_deactivate(self, state: State) -> TransitionCallbackReturn:
-        self.get_logger().info("on_deactivate() is called.")
-        return super().on_deactivate(state)
+        row_data = self.csv_reader.get_next_row()
+        joint_data = [np.deg2rad(float(x)) for x in row_data[1:]]
 
-    def on_cleanup(self, state: State) -> TransitionCallbackReturn:
-        self.get_logger().info("on_cleanup() is called.")
+        self.joint_state_msg.header.stamp = self.get_clock().now().to_msg()
+        self.joint_state_msg.header.frame_id = row_data[0]
+        self.joint_state_msg.position = joint_data
 
-        self.destroy_timer(self.timer)
-
-        for joint in self.joint_publishers.keys():
-            self.destroy_publisher(self.joint_publishers[joint])
-
-        return TransitionCallbackReturn.SUCCESS
-
-    def on_shutdown(self, state: State) -> TransitionCallbackReturn:
-        self.get_logger().info("on_shutdown() is called.")
-
-        self.destroy_timer(self.timer)
-
-        for joint in self.joint_publishers.keys():
-            self.destroy_publisher(self.joint_publishers[joint])
-
-        return TransitionCallbackReturn.SUCCESS
+        # Publish the joint state message
+        self.joint_state_pub.publish(self.joint_state_msg)
 
 
 def main(args=None):

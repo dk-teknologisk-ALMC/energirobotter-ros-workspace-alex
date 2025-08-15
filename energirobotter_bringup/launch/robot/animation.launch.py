@@ -14,7 +14,9 @@ package_name = "energirobotter_bringup"
 def launch_setup(context, *args, **kwargs):
 
     package_share_dir = get_package_share_directory(package_name)
-    animation_file_path = os.path.join(package_share_dir, "animations", "recording.csv")
+    animation_file_path = os.path.join(
+        package_share_dir, "animations", "recording_arms_test.csv"
+    )
 
     animation_player_node = Node(
         package="animation_player",
