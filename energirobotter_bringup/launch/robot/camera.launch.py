@@ -15,6 +15,7 @@ package_name = "energirobotter_bringup"
 def launch_setup(context, *args, **kwargs):
     camera_mode = LaunchConfiguration("camera_mode")
     camera_model = LaunchConfiguration("camera_model")
+    rotate = LaunchConfiguration("rotate").perform(context)
     use_compressed = LaunchConfiguration("use_compressed")
 
     launch_nodes = []
@@ -41,12 +42,32 @@ def launch_setup(context, *args, **kwargs):
 
         launch_nodes.append(zed_camera_launch)
 
-    # --- Test cameras ---
-
     if use_compressed.perform(context) == "true":
         image_topic = "/zed/zed_node/left/image_rect_color/compressed"
     else:
         image_topic = "/zed/zed_node/left/image_rect_color"
+
+    if rotate:
+        angles_deg = float(rotate)
+        suffix = "/compressed" if use_compressed else ""
+
+        image_rotate_node = Node(
+            package="image_processing",
+            executable="image_rotate_node",
+            output="screen",
+            remappings=[
+                ("image", image_topic),
+                ("image_rotated", image_topic + "/rotated" + suffix),
+            ],
+            parameters=[
+                {"rotation": angles_deg},
+                {"use_compressed": use_compressed},
+            ],
+        )
+
+        launch_nodes.append(image_rotate_node)
+
+    # --- Test cameras ---
 
     if camera_mode.perform(context) == "webcam":
         webcam_node = Node(
@@ -94,6 +115,11 @@ def generate_launch_description():
                 default_value="zedm",
                 description="StereoLabs camera model.",
                 choices=["zedm", "zed2i"],
+            ),
+            DeclareLaunchArgument(
+                "rotate",
+                default_value="",
+                description="If set, a new topic will be created with the image stream rotated by specified amount of angles (degrees).",
             ),
             DeclareLaunchArgument(
                 "use_compressed",
