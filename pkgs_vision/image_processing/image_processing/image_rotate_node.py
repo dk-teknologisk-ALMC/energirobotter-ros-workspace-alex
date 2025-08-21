@@ -38,7 +38,15 @@ class ImageRotateNode(Node):
         else:
             self.image_pub = self.create_publisher(Image, "/image_rotated", 1)
 
+        # Node parameters
         self.cv_bridge = CvBridge()
+
+        # pre-map rotation codes
+        self.rotation_map = {
+            90: cv2.ROTATE_90_CLOCKWISE,
+            180: cv2.ROTATE_180,
+            270: cv2.ROTATE_90_COUNTERCLOCKWISE,
+        }
 
     def image_callback(self, msg):
         # Convert ROS image to OpenCV
@@ -50,17 +58,11 @@ class ImageRotateNode(Node):
         else:
             cv_image = self.cv_bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
 
-        # Rotate image by multiples of 90 degrees
-        match self.rotation_deg:
-            case 90:
-                rotated = cv2.rotate(cv_image, cv2.ROTATE_90_CLOCKWISE)
-            case 180:
-                rotated = cv2.rotate(cv_image, cv2.ROTATE_180)
-            case 270:
-                rotated = cv2.rotate(cv_image, cv2.ROTATE_90_COUNTERCLOCKWISE)
-            case _:
-                # 0° or unsupported angle, keep original
-                rotated = cv_image
+        # Rotate image by multiples of 90 degrees (see self.rotation_map)
+        if self.rotation_deg in self.rotation_map:
+            rotated = cv2.rotate(cv_image, self.rotation_map[self.rotation_deg])
+        else:
+            rotated = cv_image  # 0° or unsupported angle
 
         # Convert back to ROS Image and publish
         if self.use_compressed:
