@@ -21,7 +21,9 @@ def launch_setup(context, *args, **kwargs):
 
     launch_nodes = []
 
-    image_topic_left = "/zed/zed_node/left/image_rect_color/compressed"
+    image_topic_left = (
+        "/zed/zed_node/left/image_rect_color/compressed/rotated/compressed"
+    )
     image_topic_right = "/zed/zed_node/right/image_rect_color/compressed"
 
     if camera_source.perform(context) == "ngrok":

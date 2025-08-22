@@ -11,8 +11,6 @@ from .utils import interval_map
 from servo_control.src.driver_servos import DriverServos
 from servo_control.src.servo_control import ServoControl
 
-BAUDRATE = 115200
-
 supported_servos = {
     "ST3215": sms_sts,
     "SC09": scscl,
@@ -21,11 +19,20 @@ supported_servos = {
 
 class DriverWaveshare(DriverServos):
     def __init__(
-        self, config_files, control_frequency, port_path="/dev/ttyUSB0", debug=False
+        self,
+        config_files,
+        control_frequency,
+        feedback_enabled=False,
+        port_path="/dev/ttyUSB0",
+        baudrate=921600,
+        debug=False,
     ):
         super().__init__(config_files)
 
+        self.control_frequency = control_frequency
+        self.feedback_enabled = feedback_enabled
         self.port_path = port_path
+        self.baudrate = baudrate
 
         self.servo_models = []
         for config in config_files:
@@ -47,7 +54,7 @@ class DriverWaveshare(DriverServos):
 
         self.loop_thread_write = threading.Thread(
             target=self._loop_sync_commands,
-            args=(self._sync_commands_write, control_frequency),
+            args=(self._sync_commands_write, self.control_frequency),
             daemon=True,
         )
 
@@ -66,7 +73,7 @@ class DriverWaveshare(DriverServos):
                 self.logger.error("Failed to open port")
                 return False
 
-            if not self.port_handler.setBaudRate(BAUDRATE):
+            if not self.port_handler.setBaudRate(self.baudrate):
                 self.logger.error("Failed to set baud rate")
                 return False
 
@@ -81,7 +88,9 @@ class DriverWaveshare(DriverServos):
             )
 
             # Start threads after driver setup
-            self.loop_thread_read.start()
+            if self.feedback_enabled:
+                self.loop_thread_read.start()
+
             self.loop_thread_write.start()
 
             self.logger.info("Serial communication successful")
@@ -93,6 +102,9 @@ class DriverWaveshare(DriverServos):
 
     def read_feedback(self, servo: ServoControl):
 
+        if not self.feedback_enabled:
+            return
+
         if not "ST3215" in self.driver_objects:
             return
 
@@ -103,7 +115,7 @@ class DriverWaveshare(DriverServos):
             return feedback
 
         except Exception as e:
-            self.logger.error(f"Failed to read feedback: {e}")
+            self.logger.debug(f"Failed to read feedback: {e}")
             return None
 
     def write_command(self, servo: ServoControl, pwm):
@@ -118,12 +130,12 @@ class DriverWaveshare(DriverServos):
                 scs_addparam_result = driver.SyncWritePos(
                     servo.servo_id,
                     pwm,
-                    SERVO_SPEED := servo.pwm_speed_max,
+                    SERVO_SPEED := servo.pwm_speed,
                     SERVO_ACC := 64,
                 )
 
                 if scs_addparam_result != True:
-                    self.logger.warning(
+                    self.logger.debug(
                         f"groupSyncWrite addparam failed, servo ID: {servo.servo_id}"
                     )
 
@@ -137,6 +149,9 @@ class DriverWaveshare(DriverServos):
             time.sleep(max(0, interval - elapsed))
 
     def _sync_commands_read(self):
+
+        if not self.feedback_enabled:
+            return
 
         if not "ST3215" in self.driver_objects:
             return

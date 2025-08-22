@@ -125,6 +125,7 @@ class PortHandler(object):
             128000,
             250000,
             500000,
+            921600,
             1000000,
         ]:
             return baudrate

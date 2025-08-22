@@ -81,16 +81,19 @@ class ServoControl:
         self.pwm_speed_max = self.angle_speed_to_hardware_pwm_speed(
             self.angle_speed_max, self.gear_ratio
         )
-
         self.pwm = self.angle_to_hardware_pwm(self.angle, self.gear_ratio)
         self.pwm_speed = self.angle_speed_to_hardware_pwm_speed(
             self.angle_speed, self.gear_ratio
         )
+
         self.temperature = 0.0
 
         self.time_prev = None
         self.error_acc = 0.0
         self.error_prev = 0.0
+
+        self.velocity_samples = []
+        self.vel_avg_window = 3
 
     def set_feedback_angle(self, feedback_angle):
         """
@@ -191,7 +194,14 @@ class ServoControl:
         self.time_prev = time.time()
 
         angle_delta = angle_target - self.angle
-        angle_vel = np.sign(angle_delta) * speed_max if angle_delta != 0 else 0
+
+        raw_vel = angle_delta / t_d
+        self.velocity_samples.append(raw_vel)
+
+        if len(self.velocity_samples) > self.vel_avg_window:
+            self.velocity_samples.pop(0)
+
+        angle_vel = sum(self.velocity_samples) / len(self.velocity_samples)
         angle_vel = self.limit_speed(angle_vel, speed_max)
         angle_cmd = self.angle + angle_vel * t_d
 
@@ -207,6 +217,7 @@ class ServoControl:
         if not self.feedback_enabled:
             self.angle = angle_cmd
             self.angle_speed = abs(angle_vel)
+
             self.pwm = self.angle_to_hardware_pwm(self.angle, self.gear_ratio)
             self.pwm_speed = self.angle_speed_to_hardware_pwm_speed(
                 self.angle_speed, self.gear_ratio

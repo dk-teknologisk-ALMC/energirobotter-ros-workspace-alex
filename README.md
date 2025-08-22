@@ -9,6 +9,7 @@ Packages for Energinet's Humanoid Robots, part of the project "Energirobotter".
     - [ZED SDK](#zed-sdk)
       - [Ubuntu 22.04](#ubuntu-2204)
       - [Jetson Orin Nano (Jetpack 6.0)](#jetson-orin-nano-jetpack-60)
+    - [ZED ROS 2 Wrapper](#zed-ros-2-wrapper)
     - [Dependencies](#dependencies)
     - [AI model](#ai-model)
     - [Build](#build)
@@ -28,12 +29,11 @@ Reboot your system.
 
 ### Repository
 
-Clone this repository into a `workspace/src/` folder, along with [zed-ros2-wrapper](https://github.com/stereolabs/zed-ros2-wrapper):
+Clone this repository into a `workspace/src/` folder:
 
 ```
 cd src
 git clone --recursive https://github.com/energinet-digitalisering/energirobotter-ros-workspace.git
-git clone  --recursive https://github.com/stereolabs/zed-ros2-wrapper.git
 ```
 
 ### ZED SDK
@@ -46,7 +46,13 @@ Download and install [ZED SDK v4.2](https://www.stereolabs.com/en-dk/developers/
 #### Jetson Orin Nano (Jetpack 6.0)
 Download and install [ZED SDK v4.2](https://www.stereolabs.com/en-dk/developers/release) for NVIDIA Jetson (ZED SDK for JetPack 6.0 GA (L4T 36.3)) 
 
+### ZED ROS 2 Wrapper
 
+Follow the instructions on building the package in the [zed_ros2_wrapper](https://github.com/stereolabs/zed-ros2-wrapper?tab=readme-ov-file) repo. Name the `ros2_ws` folder something more appropriate, like `zed_wrapper_ws`. Also do the optional command of sourcing the workspace in `.bashrc`.
+
+Replace the `zed2i.yaml` and `zedm.yaml` files in `~/zed_wrapper_ws/src/zed-ros2-wrapper/zed_wrapper/config/` with the versions provided in `energirobotter_bringup/config/zed_camera/` from this repository.
+
+The `ZED_SDK` may have upgraded Numpy to 2.x, but ROS was built against Numpy 1.x, so it should be downgraded by running: `pip3 install "numpy<2" --force-reinstall`
 
 ### Dependencies
 
