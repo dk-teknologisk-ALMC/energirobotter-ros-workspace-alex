@@ -1,4 +1,7 @@
+from dataclasses import dataclass, field
 import numpy as np
+from typing import Callable, Dict
+
 import pyroki as pk
 import pyroki.examples.pyroki_snippets as pks
 
@@ -10,43 +13,37 @@ from sensor_msgs.msg import JointState
 from geometry_msgs.msg import Pose, PoseStamped
 
 
+@dataclass
+class EndEffector:
+    name: str
+    chain_name: str
+    callback: Callable
+    locked_joints: Dict[int, float] = field(
+        default_factory=dict
+    )  # {link_id(int), angle(float)}
+    target_position: np.ndarray = field(
+        default_factory=lambda: np.array([0.5, 0.5, 0.5])
+    )
+    target_rotation: np.ndarray = field(
+        default_factory=lambda: np.array([0.0, 0.0, 0.0, 1.0])
+    )
+
+
 class KinematicsManagerNode(Node):
     def __init__(self):
         super().__init__("kinematics_manager_node")
 
-        self.end_effectors = [
-            "link_left_hand",
-            "link_right_hand",
-            # "link_head_roll",
-        ]
-
-        self.chain_names = {
-            self.end_effectors[0]: "left",
-            self.end_effectors[1]: "right",
-            # self.end_effectors[2]: "head",
-        }
-
-        self.locked_joints = {
-            # {link_id(int), angle(float)}
-            self.end_effectors[0]: {},
-            self.end_effectors[1]: {},
-            # self.end_effectors[2]: {},
-        }
-
-        self.end_effector_callback_subs = {
-            self.end_effectors[0]: self.callback_target_pos_left,
-            self.end_effectors[1]: self.callback_target_pos_right,
-            # self.end_effectors[2]: self.callback_target_pos_head,
-        }
-
-        self.target_posistion = {
-            self.end_effectors[0]: np.array([0.5, 0.5, 0.5]),
-            self.end_effectors[1]: np.array([0.5, 0.5, 0.5]),
-        }
-
-        self.target_rotation = {
-            self.end_effectors[0]: np.array([0.0, 0.0, 0.0, 1.0]),
-            self.end_effectors[1]: np.array([0.0, 0.0, 0.0, 1.0]),
+        self.end_effectors = {
+            "left": EndEffector(
+                name="link_left_hand",
+                chain_name="left",
+                callback=self.callback_target_pos_left,
+            ),
+            "right": EndEffector(
+                name="link_right_hand",
+                chain_name="right",
+                callback=self.callback_target_pos_right,
+            ),
         }
 
         self.timer = self.create_timer(0.1, self.callback_timer_publish_joint_states)
@@ -98,21 +95,13 @@ class KinematicsManagerNode(Node):
 
     def callback_target_pos_left(self, msg: PoseStamped):
         pos, rot = self.ros_pose_to_pos_rot(msg.pose)
-
-        self.target_posistion[self.end_effectors[0]] = pos
-        self.target_rotation[self.end_effectors[0]] = rot
+        self.end_effectors["left"].target_position = pos
+        self.end_effectors["left"].target_rotation = rot
 
     def callback_target_pos_right(self, msg: PoseStamped):
         pos, rot = self.ros_pose_to_pos_rot(msg.pose)
-
-        self.target_posistion[self.end_effectors[1]] = pos
-        self.target_rotation[self.end_effectors[1]] = rot
-
-    def callback_target_pos_head(self, msg: PoseStamped):
-        pos, rot = self.ros_pose_to_pos_rot(msg.pose)
-
-        self.target_posistion[self.end_effectors[2]] = pos
-        self.target_rotation[self.end_effectors[2]] = rot
+        self.end_effectors["right"].target_position = pos
+        self.end_effectors["right"].target_rotation = rot
 
     def callback_timer_publish_joint_states(self):
         """
