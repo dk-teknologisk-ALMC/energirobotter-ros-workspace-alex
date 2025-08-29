@@ -42,7 +42,7 @@ public:
       return;
     }
 
-    // Get limits
+    // Get joint limits
     if (!solver_->getKDLLimits(min_limits_, max_limits_))
     {
       RCLCPP_FATAL(this->get_logger(), "Could not fetch KDL joint limits");
@@ -121,8 +121,8 @@ private:
       result_ = last_valid_; // revert to last valid solution
     }
 
-    // --- NEW: Check for joints near limits ---
-    double threshold = 1e-3; // 0.001 rad (~0.057°)
+    // --- Joint limit check ---
+    double threshold = 1e-3; // rad
     for (unsigned int i = 0; i < result_.rows(); i++)
     {
       double val = result_(i);
