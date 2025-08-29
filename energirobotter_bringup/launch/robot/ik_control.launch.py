@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
@@ -16,15 +18,14 @@ package_name = "energirobotter_bringup"
 
 def launch_setup(context, *args, **kwargs):
     rviz = LaunchConfiguration("rviz")
+    interactive_marker = LaunchConfiguration("interactive_marker")
     description_package = LaunchConfiguration("description_package")
 
     urdf_file = PathJoinSubstitution(
-        [
-            FindPackageShare(description_package),
-            "urdf",
-            "phobos_generated.urdf",
-        ]
-    )
+        [FindPackageShare(description_package), "urdf", "phobos_generated.urdf"]
+    ).perform(context)
+
+    robot_description = Path(urdf_file).read_text()
 
     rviz_config_file = PathJoinSubstitution(
         [
@@ -44,7 +45,8 @@ def launch_setup(context, *args, **kwargs):
 
     ik_node = Node(
         package="kinematics_manager",
-        executable="kinematics_manager_node",
+        executable="trac_ik_node",
+        parameters=[{"robot_description": robot_description}],
         output="screen",
     )
 
@@ -57,10 +59,18 @@ def launch_setup(context, *args, **kwargs):
         condition=IfCondition(rviz),
     )
 
+    interactive_marker_node = Node(
+        package="kinematics_manager",
+        executable="target_pose_marker.py",
+        output="screen",
+        condition=IfCondition(interactive_marker),
+    )
+
     return [
         robot_state_pub_node,
         ik_node,
         rviz_node,
+        interactive_marker_node,
     ]
 
 
@@ -72,6 +82,12 @@ def generate_launch_description():
                 "rviz",
                 default_value="false",
                 description="Start RViz2 automatically with this launch file.",
+                choices=["true", "false"],
+            ),
+            DeclareLaunchArgument(
+                "interactive_marker",
+                default_value="false",
+                description="Enable interactive marker to control IK target pose in RViz.",
                 choices=["true", "false"],
             ),
             DeclareLaunchArgument(

@@ -19,7 +19,8 @@ setup(
     tests_require=["pytest"],
     entry_points={
         "console_scripts": [
-            f"kinematics_manager_node = {package_name}.kinematics_manager_node:main"
+            f"kinematics_manager_node = {package_name}.kinematics_manager_node:main",
+            f"target_pose_marker = {package_name}.target_pose_marker:main",
         ],
     },
 )
