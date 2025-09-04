@@ -8,6 +8,8 @@
   <license>Energinet</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>ament_cmake_python</buildtool_depend>
+
   <depend>rclcpp</depend>
   <depend>trac_ik_lib</depend>
   <depend>orocos_kdl</depend>
@@ -17,7 +19,6 @@
   <test_depend>ament_lint_common</test_depend>
 
   <export>
-    <buildtool_depend>ament_cmake</buildtool_depend>
-    <buildtool_depend>ament_cmake_python</buildtool_depend>
+    <build_type>ament_cmake</build_type>
   </export>
 </package>
