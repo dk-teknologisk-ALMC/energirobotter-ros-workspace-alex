@@ -136,14 +136,6 @@ class ElrikKdlKinematics(Node):
         # Publish the joint state message
         self.joint_state_pub.publish(joint_state_msg)
 
-    def get_current_position(self, chain) -> List[float]:
-        joints = self.get_chain_joints_name(chain)
-        return [self._current_pos[j] for j in joints]
-
-    def wait_for_joint_state(self):
-        while not self.joint_state_ready.is_set():
-            self.get_logger().info("Waiting for /joint_states...")
-            rclpy.spin_once(self)
 
     def retrieve_urdf(self, timeout_sec: float = 15):
         self.get_logger().info('Retrieving URDF from "/robot_description"...')
@@ -171,17 +163,6 @@ class ElrikKdlKinematics(Node):
         self.get_logger().info("Done!")
 
         return self.urdf
-
-    def check_position(self, js: JointState, chain) -> List[float]:
-        pos = dict(zip(js.name, js.position))
-        try:
-            joints = [pos[j] for j in self.get_chain_joints_name(chain)]
-            return joints
-        except KeyError:
-            self.get_logger().warning(
-                f"Incorrect joints found ({js.name} vs {self.get_chain_joints_name(chain)})"
-            )
-            raise
 
     def get_chain_joints_name(self, chain):
         return [
