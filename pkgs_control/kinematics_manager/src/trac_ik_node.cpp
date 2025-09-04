@@ -49,16 +49,16 @@ public:
       return;
     }
 
-    result_.resize(chain.getNrOfJoints());
+    q_out_.resize(chain.getNrOfJoints());
     joint_names_.resize(chain.getNrOfJoints());
-    last_valid_.resize(chain.getNrOfJoints());
+    q_last_valid_.resize(chain.getNrOfJoints());
 
     // Initialize all joints to 0
     for (size_t i = 0; i < chain.getNrOfJoints(); i++)
     {
       joint_names_[i] = chain.getSegment(i).getJoint().getName();
-      result_(i) = 0.0;
-      last_valid_(i) = 0.0;
+      q_out_(i) = 0.0;
+      q_last_valid_(i) = 0.0;
     }
 
     RCLCPP_INFO(this->get_logger(), "TRAC-IK initialized with %d joints", chain.getNrOfJoints());
@@ -79,6 +79,32 @@ public:
   }
 
 private:
+  KDL::JntArray findBoundaryBisection(const KDL::JntArray &nominal, const KDL::Frame &target_out_of_bounds, KDL::JntArray &q_out, double epsilon = 1e-5)
+  {
+    KDL::Vector p_low = target_pos_center_;      // last inside point
+    KDL::Vector p_high = target_out_of_bounds.p; // first outside point
+    KDL::Rotation target_rot = target_out_of_bounds.M;
+
+    // Bisection loop
+    while ((p_high - p_low).Norm() > epsilon)
+    {
+      KDL::Vector p_mid = 0.5 * (p_low + p_high);
+      KDL::Frame target(target_rot, p_mid);
+
+      int rc = solver_->CartToJnt(nominal, target, q_out);
+
+      if (rc >= 0)
+      {
+        p_low = p_mid; // move low up
+      }
+      else
+      {
+        p_high = p_mid; // move high down
+      }
+    }
+    return q_out;
+  }
+
   void pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
   {
     std::lock_guard<std::mutex> lock(pose_mutex_);
@@ -93,39 +119,41 @@ private:
       pose = latest_pose_;
     }
 
-    KDL::Frame target(
-        KDL::Rotation::Quaternion(
-            pose.orientation.x,
-            pose.orientation.y,
-            pose.orientation.z,
-            pose.orientation.w),
-        KDL::Vector(
-            pose.position.x,
-            pose.position.y,
-            pose.position.z));
+    KDL::Vector target_pos(
+        pose.position.x,
+        pose.position.y,
+        pose.position.z);
+
+    KDL::Rotation target_rot(KDL::Rotation::Quaternion(
+        pose.orientation.x,
+        pose.orientation.y,
+        pose.orientation.z,
+        pose.orientation.w));
+
+    KDL::Frame target(target_rot, target_pos);
 
     // Nominal joint positions
-    KDL::JntArray nominal(result_.rows());
+    KDL::JntArray nominal(q_out_.rows());
     for (unsigned int i = 0; i < nominal.rows(); i++)
-      nominal(i) = last_valid_(i); // use last valid solution as nominal
+      nominal(i) = q_last_valid_(i); // use last valid solution as nominal
 
-    int rc = solver_->CartToJnt(nominal, target, result_);
-    if (rc >= 0)
+    int rc = solver_->CartToJnt(nominal, target, q_out_);
+
+    if (rc < 0)
     {
-      last_valid_ = result_; // update last valid solution
-      RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "IK solution found");
+      findBoundaryBisection(nominal, target, q_out_);
+      RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "Approximating IK solution...");
     }
-    else
-    {
-      RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "No IK solution, publishing last valid solution");
-      result_ = last_valid_; // revert to last valid solution
-    }
+
+    q_last_valid_ = q_out_; // update last valid solution
+
+    RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "IK solution found");
 
     // --- Joint limit check ---
     double threshold = 1e-3; // rad
-    for (unsigned int i = 0; i < result_.rows(); i++)
+    for (unsigned int i = 0; i < q_out_.rows(); i++)
     {
-      double val = result_(i);
+      double val = q_out_(i);
       double lower = min_limits_(i);
       double upper = max_limits_(i);
 
@@ -147,19 +175,22 @@ private:
     sensor_msgs::msg::JointState js_msg;
     js_msg.header.stamp = this->now();
     js_msg.name = joint_names_;
-    js_msg.position.resize(result_.rows());
-    for (unsigned int i = 0; i < result_.rows(); i++)
-      js_msg.position[i] = result_(i);
+    js_msg.position.resize(q_out_.rows());
+    for (unsigned int i = 0; i < q_out_.rows(); i++)
+      js_msg.position[i] = q_out_(i);
 
     pub_->publish(js_msg);
   }
 
   std::unique_ptr<TRAC_IK::TRAC_IK> solver_;
-  KDL::JntArray result_;
-  KDL::JntArray last_valid_;
+  KDL::Vector target_pos_last_valid_;
+  KDL::JntArray q_out_;
+  KDL::JntArray q_last_valid_;
   KDL::JntArray min_limits_;
   KDL::JntArray max_limits_;
   std::vector<std::string> joint_names_;
+
+  KDL::Vector target_pos_center_{-0.2, 0.5, 0.0};
 
   rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr pub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_;
