@@ -3,7 +3,7 @@
 <package format="3">
   <name>kinematics_manager</name>
   <version>0.0.0</version>
-  <description>Kinematics manager for humanoid robots, using the PyRoki library.</description>
+  <description>ROS2 Humble package for humanoid robot kinematics (URDF, arms FK/IK).</description>
   <maintainer email="xnlth@energinet.dk">Nicoline</maintainer>
   <license>Energinet</license>
 

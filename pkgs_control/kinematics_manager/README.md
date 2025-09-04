@@ -1,4 +1,4 @@
 # Kinematics Manager
 
-Kinematics manager for humanoid robots in the Energorobotter project, using the [PyRoki](https://pyroki-toolkit.github.io/) library.
+ROS2 Humble package for humanoid robot kinematics (URDF, arms FK/IK)
 

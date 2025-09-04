@@ -54,8 +54,8 @@ rosdep install --from-paths src --ignore-src -r -y
 Python modules not included in [rosdistro](https://github.com/ros/rosdistro/blob/master/rosdep/python.yaml) can be installed from root of workspace with:
 ```
 pip install -r src/energirobotter-ros-workspace/requirements.txt
-pip install -e src/energirobotter-ros-workspace/pkgs_control/pyroki
 ```
+
 #### ZED SDK
 
 ##### Ubuntu 22.04
