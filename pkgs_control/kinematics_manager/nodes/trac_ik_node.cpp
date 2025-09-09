@@ -17,33 +17,12 @@ public:
   {
     // Parameters
     base_link_ = this->declare_parameter<std::string>("base_link", "link_torso");
-    tip_link_ = this->declare_parameter<std::string>("tip_link", "link_left_hand");
-    double timeout = this->declare_parameter<double>("timeout", 0.005);
-    double eps = this->declare_parameter<double>("eps", 1e-5);
+    tip_links_ = this->declare_parameter<std::vector<std::string>>("tip_links", {"link_left_hand", "link_right_hand"});
+
     double publish_rate = this->declare_parameter<double>("publish_rate", 30.0);
 
-    // Initialize TRAC-IK manager
-    ik_manager_ = std::make_unique<TracIKManager>(
-        this->shared_from_this(),
-        base_link_,
-        tip_link_,
-        "robot_description",
-        KDL::Vector{-0.2, 0.5, 0.0},
-        timeout,
-        eps,
-        TRAC_IK::SolveType::Distance);
-
-    if (!ik_manager_->initialize())
-    {
-      RCLCPP_FATAL(this->get_logger(), "Failed to initialize TRAC-IK manager");
-      return;
-    }
-
-    // Subscribers
-    sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
-        "/left/target_pose",
-        10,
-        std::bind(&TracIKNode::pose_callback, this, std::placeholders::_1));
+    create_solver("left", "link_left_hand", KDL::Vector{-0.2, 0.5, 0.0});
+    create_solver("right", "link_right_hand", KDL::Vector{0.2, 0.5, 0.0});
 
     // Publishers
     pub_ = this->create_publisher<sensor_msgs::msg::JointState>("/joint_states", 10);
@@ -55,62 +34,102 @@ public:
   }
 
 private:
-  void pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
+  KDL::Frame ros_pose_to_kdl_frame(const geometry_msgs::msg::Pose &pose)
   {
-    std::lock_guard<std::mutex> lock(pose_mutex_);
-    latest_pose_ = msg->pose;
-  }
-
-  void publish_ik_solution()
-  {
-    geometry_msgs::msg::Pose pose;
-    {
-      std::lock_guard<std::mutex> lock(pose_mutex_);
-      pose = latest_pose_;
-    }
-
-    KDL::Vector target_pos(
+    KDL::Vector pose_position(
         pose.position.x,
         pose.position.y,
         pose.position.z);
 
-    KDL::Rotation target_rot = KDL::Rotation::Quaternion(
+    KDL::Rotation pose_rotation = KDL::Rotation::Quaternion(
         pose.orientation.x,
         pose.orientation.y,
         pose.orientation.z,
         pose.orientation.w);
 
-    KDL::Frame target(target_rot, target_pos);
-
-    KDL::JntArray q_out;
-    bool success = ik_manager_->compute_ik(target, q_out);
-
-    if (success)
-    {
-      RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "IK solution found");
-    }
-
-    // Publish JointState
-    sensor_msgs::msg::JointState js_msg;
-    js_msg.header.stamp = this->now();
-    js_msg.name = ik_manager_->get_joint_names();
-    js_msg.position.resize(q_out.rows());
-    for (unsigned int i = 0; i < q_out.rows(); i++)
-      js_msg.position[i] = q_out(i);
-
-    pub_->publish(js_msg);
+    return KDL::Frame(pose_rotation, pose_position);
   }
 
-  std::unique_ptr<TracIKManager> ik_manager_;
+  void create_solver(
+      std::string key,
+      std::string tip_link,
+      KDL::Vector reachability_space_center)
+  {
+    auto ik_manager = std::make_unique<TracIKManager>(
+        this->shared_from_this(),
+        base_link_,
+        tip_link,
+        "robot_description",
+        reachability_space_center);
+
+    if (!ik_manager->initialize())
+    {
+      RCLCPP_FATAL(this->get_logger(), "Failed to initialize TRAC-IK for %s", tip_link.c_str());
+      return;
+    }
+
+    ik_managers_[key] = std::move(ik_manager);
+
+    // Create subscription for each end-effector
+    auto sub = this->create_subscription<geometry_msgs::msg::PoseStamped>(
+        "/" + key + "/target_pose", 10,
+        [this, key](const geometry_msgs::msg::PoseStamped::SharedPtr msg)
+        {
+          ik_managers_[key]->set_target_pose(ros_pose_to_kdl_frame(msg->pose));
+        });
+
+    subscriptions_[key] = sub;
+  }
+
+  void publish_ik_solution()
+  {
+    sensor_msgs::msg::JointState joint_state_msg;
+    joint_state_msg.header.stamp = this->now();
+
+    for (const auto &[key, ik_manager] : ik_managers_)
+    {
+      KDL::JntArray q_out;
+      bool success = ik_manager->compute_ik(q_out);
+
+      if (success)
+      {
+        RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 1000,
+                             "IK solution found for %s", key.c_str());
+      }
+      else
+      {
+        RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 1000,
+                             "No IK solution for %s", key.c_str());
+      }
+
+      // Append joint names and positions with key prefix to avoid collisions
+      const auto &joint_names = ik_manager->get_joint_names();
+      for (unsigned int i = 0; i < q_out.rows(); i++)
+      {
+        joint_state_msg.name.push_back(joint_names[i]);
+        joint_state_msg.position.push_back(q_out(i));
+      }
+    }
+
+    if (!joint_state_msg.name.empty())
+    {
+      pub_->publish(joint_state_msg);
+    }
+    else
+    {
+      RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 1000,
+                           "No joint states to publish");
+    }
+  }
+
+  std::map<std::string, std::unique_ptr<TracIKManager>> ik_managers_;
+  std::map<std::string, rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr> subscriptions_;
   rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr pub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_;
   rclcpp::TimerBase::SharedPtr timer_;
 
-  std::mutex pose_mutex_;
-  geometry_msgs::msg::Pose latest_pose_;
-
   std::string base_link_;
-  std::string tip_link_;
+  std::vector<std::string> tip_links_;
 };
 
 int main(int argc, char **argv)
