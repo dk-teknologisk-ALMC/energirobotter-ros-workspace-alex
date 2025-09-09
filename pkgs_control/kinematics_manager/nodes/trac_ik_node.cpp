@@ -90,36 +90,10 @@ private:
       RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "IK solution found");
     }
 
-    // Joint limit check
-    double threshold = 1e-3; // rad
-    const auto &joint_names = ik_manager_->get_joint_names();
-    const auto &min_limits = ik_manager_->get_min_limits();
-    const auto &max_limits = ik_manager_->get_max_limits();
-
-    for (unsigned int i = 0; i < q_out.rows(); i++)
-    {
-      double val = q_out(i);
-      double lower = min_limits(i);
-      double upper = max_limits(i);
-
-      if (val <= lower + threshold)
-      {
-        RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
-                             "Joint %s near LOWER limit: %.3f (limit = %.3f)",
-                             joint_names[i].c_str(), val, lower);
-      }
-      else if (val >= upper - threshold)
-      {
-        RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
-                             "Joint %s near UPPER limit: %.3f (limit = %.3f)",
-                             joint_names[i].c_str(), val, upper);
-      }
-    }
-
     // Publish JointState
     sensor_msgs::msg::JointState js_msg;
     js_msg.header.stamp = this->now();
-    js_msg.name = joint_names;
+    js_msg.name = ik_manager_->get_joint_names();
     js_msg.position.resize(q_out.rows());
     for (unsigned int i = 0; i < q_out.rows(); i++)
       js_msg.position[i] = q_out(i);
