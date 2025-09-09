@@ -60,8 +60,8 @@ def launch_setup(context, *args, **kwargs):
     )
 
     interactive_marker_node = Node(
-        package="kinematics_manager",
-        executable="target_pose_marker.py",
+        package="control_utils",
+        executable="target_pose_marker",
         output="screen",
         condition=IfCondition(interactive_marker),
     )

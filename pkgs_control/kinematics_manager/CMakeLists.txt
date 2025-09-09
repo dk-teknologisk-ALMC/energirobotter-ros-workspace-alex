@@ -28,10 +28,4 @@ install(TARGETS
   DESTINATION lib/${PROJECT_NAME}
 )
 
-# Python setup
-ament_python_install_package(${PROJECT_NAME})
-install(PROGRAMS
-  kinematics_manager/target_pose_marker.py
-  DESTINATION lib/${PROJECT_NAME})
-
 ament_package()
