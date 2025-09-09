@@ -10,9 +10,14 @@ find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 
 # C++ node
-add_executable(trac_ik_node src/trac_ik_node.cpp)
+add_executable(trac_ik_node nodes/trac_ik_node.cpp)
 ament_target_dependencies(trac_ik_node rclcpp trac_ik_lib orocos_kdl geometry_msgs sensor_msgs)
-install(TARGETS trac_ik_node DESTINATION lib/${PROJECT_NAME})
+
+# Install targets
+install(TARGETS
+  trac_ik_node 
+  DESTINATION lib/${PROJECT_NAME}
+)
 
 # Python setup
 ament_python_install_package(${PROJECT_NAME})

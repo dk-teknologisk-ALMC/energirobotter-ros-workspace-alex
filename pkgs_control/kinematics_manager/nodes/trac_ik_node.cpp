@@ -10,6 +10,8 @@
 #include <kdl/chain.hpp>
 #include <kdl/jntarray.hpp>
 
+#include "kinematics_manager/trac_ik_manager.hpp"
+
 class TracIKNode : public rclcpp::Node
 {
 public:
