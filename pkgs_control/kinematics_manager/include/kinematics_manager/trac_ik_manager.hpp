@@ -24,6 +24,7 @@ public:
     bool initialize();
 
     // Compute IK for a given pose
+    bool compute_ik(KDL::JntArray &q_out);
     bool compute_ik(const KDL::Frame &pose, KDL::JntArray &q_out);
 
     // Get joint names
@@ -33,6 +34,9 @@ public:
     const KDL::JntArray &get_min_limits() const { return min_limits_; }
     const KDL::JntArray &get_max_limits() const { return max_limits_; }
 
+    // Set target pose
+    void set_target_pose(const KDL::Frame &target_pose) { target_pose_ = target_pose; }
+
 private:
     bool compute_ik_internal(const KDL::Frame &pose, KDL::JntArray &q_out);
 
@@ -41,6 +45,8 @@ private:
         const KDL::JntArray &nominal,
         const KDL::Frame &target_out_of_bounds,
         KDL::JntArray &q_out);
+
+    KDL::Frame target_pose_;
 
     rclcpp::Node::SharedPtr node_;
     std::unique_ptr<TRAC_IK::TRAC_IK> solver_;

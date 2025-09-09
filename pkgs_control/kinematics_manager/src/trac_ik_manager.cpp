@@ -9,7 +9,7 @@ TracIKManager::TracIKManager(
     double timeout,
     double eps,
     TRAC_IK::SolveType solve_type)
-    : node_(node), reachability_space_center_(reachability_space_center), eps_(eps)
+    : node_(node), reachability_space_center_(reachability_space_center), eps_(eps), target_pose_(reachability_space_center)
 {
     solver_ = std::make_unique<TRAC_IK::TRAC_IK>(
         node_, base_link, tip_link, urdf_param, timeout, eps, solve_type);
@@ -44,6 +44,10 @@ bool TracIKManager::initialize()
     return true;
 }
 
+bool TracIKManager::compute_ik(KDL::JntArray &q_out)
+{
+    return compute_ik_internal(target_pose_, q_out);
+}
 
 bool TracIKManager::compute_ik(const KDL::Frame &target_pose, KDL::JntArray &q_out)
 {
