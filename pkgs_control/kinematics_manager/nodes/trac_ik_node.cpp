@@ -18,9 +18,9 @@ public:
     // Parameters
     base_link_ = this->declare_parameter<std::string>("base_link", "link_torso");
     tip_links_ = this->declare_parameter<std::vector<std::string>>("tip_links", {"link_left_hand", "link_right_hand"});
-
     double publish_rate = this->declare_parameter<double>("publish_rate", 30.0);
 
+    // Create solvers and setup for each end-effector
     create_solver("left", "link_left_hand", KDL::Vector{-0.2, 0.5, 0.0});
     create_solver("right", "link_right_hand", KDL::Vector{0.2, 0.5, 0.0});
 
