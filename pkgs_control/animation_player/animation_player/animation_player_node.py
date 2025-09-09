@@ -27,13 +27,17 @@ class AnimationPlayerNode(Node):
         header = self.csv_reader.get_header()
         self.joints_names = header[1:]  # Skip frame info
 
-        # Split joints into arm (non-hand) and hand
-        self.arm_names = [
-            name for name in self.joints_names if name.startswith("joint_")
-        ]
-        self.hand_names = [
-            name for name in self.joints_names if name.startswith("hand_")
-        ]
+        # Split joints into arm and hand, and compute indices
+        self.arm_names, self.hand_names = [], []
+        self.arm_indices, self.hand_indices = [], []
+
+        for i, name in enumerate(self.joints_names):
+            if name.startswith("joint_"):
+                self.arm_names.append(name)
+                self.arm_indices.append(i)
+            elif name.startswith("hand_"):
+                self.hand_names.append(name)
+                self.hand_indices.append(i)
 
         # Timers
         self.timer = self.create_timer(1.0 / self.fps, self.callback_timer)
@@ -62,16 +66,8 @@ class AnimationPlayerNode(Node):
         joint_values = [float(x) for x in row_data[1:]]  # Degrees
         joint_data = [np.deg2rad(v) for v in joint_values]  # To radians
 
-        # Indices for splitting
-        arm_indices = [
-            i for i, name in enumerate(self.joints_names) if name.startswith("joint_")
-        ]
-        hand_indices = [
-            i for i, name in enumerate(self.joints_names) if name.startswith("hand_")
-        ]
-
-        arm_positions = [joint_data[i] for i in arm_indices]
-        hand_positions = [joint_data[i] for i in hand_indices]
+        arm_positions = [joint_data[i] for i in self.arm_indices]
+        hand_positions = [joint_data[i] for i in self.hand_indices]
 
         now = self.get_clock().now().to_msg()
 
