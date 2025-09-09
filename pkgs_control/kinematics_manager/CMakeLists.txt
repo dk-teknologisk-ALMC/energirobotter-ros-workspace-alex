@@ -5,7 +5,6 @@ find_package(ament_cmake REQUIRED)
 find_package(ament_cmake_python REQUIRED)  # allows mixing Python + C++
 find_package(rclcpp REQUIRED)
 find_package(trac_ik_lib REQUIRED)
-# find_package(orocos_kdl REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 

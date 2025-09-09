@@ -17,7 +17,6 @@ public:
   {
     // Parameters
     base_link_ = this->declare_parameter<std::string>("base_link", "link_torso");
-    tip_links_ = this->declare_parameter<std::vector<std::string>>("tip_links", {"link_left_hand", "link_right_hand"});
     double publish_rate = this->declare_parameter<double>("publish_rate", 30.0);
 
     // Create solvers and setup for each end-effector
