@@ -44,7 +44,13 @@ bool TracIKManager::initialize()
     return true;
 }
 
-bool TracIKManager::compute_ik(const KDL::Frame &pose, KDL::JntArray &q_out)
+
+bool TracIKManager::compute_ik(const KDL::Frame &target_pose, KDL::JntArray &q_out)
+{
+    return compute_ik_internal(target_pose, q_out);
+}
+
+bool TracIKManager::compute_ik_internal(const KDL::Frame &target_pose, KDL::JntArray &q_out)
 {
     q_out.resize(joint_names_.size());
 
@@ -53,11 +59,11 @@ bool TracIKManager::compute_ik(const KDL::Frame &pose, KDL::JntArray &q_out)
     for (unsigned int i = 0; i < nominal.rows(); i++)
         nominal(i) = q_last_valid_(i);
 
-    int rc = solver_->CartToJnt(nominal, pose, q_out);
+    int rc = solver_->CartToJnt(nominal, target_pose, q_out);
 
     if (rc < 0)
     {
-        find_boundary_bisection(nominal, pose, q_out);
+        find_boundary_bisection(nominal, target_pose, q_out);
         RCLCPP_INFO_THROTTLE(node_->get_logger(), *node_->get_clock(), 1000, "Approximating IK solution...");
     }
 

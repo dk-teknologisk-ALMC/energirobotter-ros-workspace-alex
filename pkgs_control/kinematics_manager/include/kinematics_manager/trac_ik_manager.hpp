@@ -34,6 +34,8 @@ public:
     const KDL::JntArray &get_max_limits() const { return max_limits_; }
 
 private:
+    bool compute_ik_internal(const KDL::Frame &pose, KDL::JntArray &q_out);
+
     // Bisection method for approximating IK solution when out of bounds
     KDL::JntArray find_boundary_bisection(
         const KDL::JntArray &nominal,
