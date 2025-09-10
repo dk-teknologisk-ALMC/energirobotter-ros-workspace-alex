@@ -14,7 +14,7 @@
             "angle_min": 0,
             "angle_max": 360,
             "angle_software_min": 120,
-            "angle_software_max": 230,
+            "angle_software_max": 240,
             "angle_speed_max": 50,
             "default_position": 180,
             "feedback_enabled": false,
