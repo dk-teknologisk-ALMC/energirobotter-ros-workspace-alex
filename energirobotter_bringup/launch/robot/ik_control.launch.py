@@ -44,8 +44,8 @@ def launch_setup(context, *args, **kwargs):
     )
 
     ik_node = Node(
-        package="kinematics_manager",
-        executable="trac_ik_node",
+        package="elrik_kdl_kinematics",
+        executable="elrik_kdl_kinematics_node",
         parameters=[{"robot_description": robot_description}],
         output="screen",
     )
