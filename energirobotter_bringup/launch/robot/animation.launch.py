@@ -15,7 +15,7 @@ def launch_setup(context, *args, **kwargs):
 
     package_share_dir = get_package_share_directory(package_name)
     animation_file_path = os.path.join(
-        package_share_dir, "animations", "optimus_mimic.csv"
+        package_share_dir, "animations", "alexander_mimic.csv"
     )
 
     animation_player_node = Node(
