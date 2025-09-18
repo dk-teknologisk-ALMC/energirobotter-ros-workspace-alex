@@ -18,6 +18,7 @@ public:
         KDL::Vector reachability_space_center = KDL::Vector{0.0, 0.0, 0.0},
         double timeout = 0.001,
         double eps = 1e-5,
+        bool allow_approximation = false,
         TRAC_IK::SolveType solve_type = TRAC_IK::SolveType::Distance);
 
     // Initialize the solver and fetch KDL chain/limits
@@ -56,4 +57,5 @@ private:
     std::vector<std::string> joint_names_;
     KDL::Vector reachability_space_center_;
     double eps_;
+    bool allow_approximation_;
 };
