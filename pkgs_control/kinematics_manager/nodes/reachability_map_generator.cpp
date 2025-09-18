@@ -38,16 +38,8 @@ public:
         double zmin = -0.5, zmax = 0.5;
         double step = 0.10; // 10 cm resolution
 
-        std::ofstream outfile("reachability_arm.ply");
-
         // Write simple PLY header (ASCII point cloud)
-        outfile << "ply\nformat ascii 1.0\n";
-        size_t approx_points = static_cast<size_t>(
-            ((xmax - xmin) / step) * ((ymax - ymin) / step) * ((zmax - zmin) / step));
-        outfile << "element vertex " << approx_points << "\n";
-        outfile << "property float x\nproperty float y\nproperty float z\nend_header\n";
 
-        size_t count = 0;
         for (double x = xmin; x <= xmax && rclcpp::ok(); x += step)
         {
             for (double y = ymin; y <= ymax && rclcpp::ok(); y += step)
@@ -58,17 +50,16 @@ public:
                     KDL::Frame pose(KDL::Rotation::Identity(), KDL::Vector(x, y, z));
 
                     KDL::JntArray q_out;
+
                     if (ik_manager_->compute_ik(pose, q_out))
                     {
-                        outfile << x << " " << y << " " << z << "\n";
-                        count++;
+                        points_.push_back(Eigen::Vector3f(x, y, z));
                     }
                 }
             }
         }
 
-        outfile.close();
-        RCLCPP_INFO(this->get_logger(), "Reachability map written with %zu points.", count);
+        save_pointcloud();
     }
 
 private:
@@ -76,6 +67,25 @@ private:
 
     std::string base_link_;
     std::string tip_link_;
+
+    std::vector<Eigen::Vector3f> points_;
+    void save_pointcloud()
+    {
+        // Write PLY header
+        std::ofstream outfile("pointcloud.ply");
+        outfile << "ply\nformat ascii 1.0\n";
+        outfile << "element vertex " << points_.size() << "\n";
+        outfile << "property float x\nproperty float y\nproperty float z\n";
+        outfile << "end_header\n";
+
+        // Write the points
+        for (const auto &p : points_)
+        {
+            outfile << p.x() << " " << p.y() << " " << p.z() << "\n";
+        }
+
+        outfile.close();
+    }
 };
 
 int main(int argc, char **argv)
