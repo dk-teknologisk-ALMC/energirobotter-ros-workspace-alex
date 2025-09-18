@@ -33,11 +33,8 @@ public:
         }
 
         // Set desired orientation
-        KDL::Rotation orientation = KDL::Rotation::Quaternion(
-            -0.022358909249305725,
-            0.7071350812911987,
-            -0.02226993255317211,
-            0.706373929977417);
+        // KDL::Rotation orientation = KDL::Rotation::Quaternion(-0.022, 0.707, -0.022, 0.706); // Left handback towards +z
+        KDL::Rotation orientation = KDL::Rotation::Quaternion(0.0, 0.0, 0.0, 1.0); // Left handback towards -x
 
         // Workspace definition (meters)
         double xmin = -0.5, xmax = 0.5;
