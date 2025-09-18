@@ -85,11 +85,12 @@ public:
     }
 
 private:
-    std::unique_ptr<TracIKManager> ik_manager_;
-
+    // Node parameters
     std::string base_link_;
     std::string tip_link_;
 
+    // Member variables
+    std::unique_ptr<TracIKManager> ik_manager_;
     std::vector<Eigen::Vector3f> points_;
     size_t total_points_;
 
@@ -121,9 +122,10 @@ int main(int argc, char **argv)
     rclcpp::init(argc, argv);
 
     auto node = std::make_shared<ReachabilityMapGenerator>();
-    node->init();
 
-    rclcpp::spin(node);
+    node->init();
+    node->generate_point_cloud();
+
     rclcpp::shutdown();
     return 0;
 }
