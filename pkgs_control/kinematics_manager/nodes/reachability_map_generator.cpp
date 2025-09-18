@@ -39,6 +39,12 @@ public:
         double step = 0.10; // 10 cm resolution
 
         // Write simple PLY header (ASCII point cloud)
+        size_t nx = static_cast<size_t>((xmax - xmin) / step) + 1;
+        size_t ny = static_cast<size_t>((ymax - ymin) / step) + 1;
+        size_t nz = static_cast<size_t>((zmax - zmin) / step) + 1;
+        total_points_ = nx * ny * nz;
+
+        RCLCPP_INFO(this->get_logger(), "Sampling a grid of %zu points.", total_points_);
 
         for (double x = xmin; x <= xmax && rclcpp::ok(); x += step)
         {
@@ -54,6 +60,7 @@ public:
                     if (ik_manager_->compute_ik(pose, q_out))
                     {
                         points_.push_back(Eigen::Vector3f(x, y, z));
+                        RCLCPP_INFO(this->get_logger(), "Reachable point nr. %zu!", points_.size());
                     }
                 }
             }
@@ -69,6 +76,8 @@ private:
     std::string tip_link_;
 
     std::vector<Eigen::Vector3f> points_;
+    size_t total_points_;
+
     void save_pointcloud()
     {
         // Write PLY header
@@ -85,6 +94,10 @@ private:
         }
 
         outfile.close();
+
+        RCLCPP_INFO(this->get_logger(),
+                    "Reachability map written with %zu reachable points (out of %zu sampled).",
+                    points_.size(), total_points_);
     }
 };
 
