@@ -15,7 +15,7 @@ public:
 
     void init()
     {
-        auto ik_manager_ = std::make_unique<TracIKManager>(this->shared_from_this(), base_link_, tip_link_, "robot_description", KDL::Vector{-0.2, 0.5, 0.0});
+        ik_manager_ = std::make_unique<TracIKManager>(this->shared_from_this(), base_link_, tip_link_, "robot_description", KDL::Vector{-0.2, 0.5, 0.0}, true);
 
         if (!ik_manager_->initialize())
         {
@@ -26,6 +26,12 @@ public:
 
     void generate_point_cloud()
     {
+        if (!ik_manager_)
+        {
+            RCLCPP_ERROR(this->get_logger(), "IK Manager not initialized!");
+            return;
+        }
+
         // Workspace definition (meters)
         double xmin = -0.5, xmax = 0.5;
         double ymin = 0.0, ymax = 1.0;
