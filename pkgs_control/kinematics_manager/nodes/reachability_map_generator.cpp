@@ -37,10 +37,10 @@ public:
         KDL::Rotation orientation = KDL::Rotation::Quaternion(0.0, 0.0, 0.0, 1.0); // Left handback towards -x
 
         // Workspace definition (meters)
-        double xmin = -0.5, xmax = 0.5;
-        double ymin = 0.0, ymax = 1.0;
-        double zmin = -0.5, zmax = 0.5;
-        double step = 0.10; // 10 cm resolution
+        double xmin = -0.8, xmax = 0.0;
+        double ymin = 0.0, ymax = 0.8;
+        double zmin = -0.4, zmax = 0.4;
+        double step = 0.5; // 10 cm resolution
 
         // Write simple PLY header (ASCII point cloud)
         size_t nx = static_cast<size_t>((xmax - xmin) / step) + 1;
