@@ -4,6 +4,7 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import PointCloud2
 import sensor_msgs_py.point_cloud2 as pc2
+from std_msgs.msg import Header
 
 
 class PointCloudPublisher(Node):
@@ -11,25 +12,29 @@ class PointCloudPublisher(Node):
         super().__init__("pointcloud_publisher")
         self.publisher_ = self.create_publisher(PointCloud2, "reachability_cloud", 10)
 
-        # Load PLY with Open3D
+        # Load PLY
         pcd = o3d.io.read_point_cloud(ply_file)
-        points = np.asarray(pcd.points, dtype=np.float32)
+        self.points = np.asarray(pcd.points, dtype=np.float32)
 
-        # Convert to PointCloud2
-        from std_msgs.msg import Header
+        # Timer
+        self.timer = self.create_timer(1.0, self.timer_callback)
 
+        self.get_logger().info(
+            f"Publishing point cloud with {len(self.points)} points..."
+        )
+
+    def timer_callback(self):
         header = Header()
         header.stamp = self.get_clock().now().to_msg()
-        header.frame_id = "map"
-        msg = pc2.create_cloud_xyz32(header, points.tolist())
+        header.frame_id = "link_torso"
 
+        msg = pc2.create_cloud_xyz32(header, self.points.tolist())
         self.publisher_.publish(msg)
-        self.get_logger().info(f"Published point cloud with {len(points)} points")
 
 
 def main(args=None):
     rclpy.init(args=args)
-    node = PointCloudPublisher("cube_corners.ply")
+    node = PointCloudPublisher("pointcloud.ply")
     rclpy.spin(node)
     rclpy.shutdown()
 
