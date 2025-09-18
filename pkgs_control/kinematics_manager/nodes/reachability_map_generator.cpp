@@ -48,11 +48,11 @@ public:
         outfile << "property float x\nproperty float y\nproperty float z\nend_header\n";
 
         size_t count = 0;
-        for (double x = xmin; x <= xmax; x += step)
+        for (double x = xmin; x <= xmax && rclcpp::ok(); x += step)
         {
-            for (double y = ymin; y <= ymax; y += step)
+            for (double y = ymin; y <= ymax && rclcpp::ok(); y += step)
             {
-                for (double z = zmin; z <= zmax; z += step)
+                for (double z = zmin; z <= zmax && rclcpp::ok(); z += step)
                 {
                     // Pose with identity orientation
                     KDL::Frame pose(KDL::Rotation::Identity(), KDL::Vector(x, y, z));
