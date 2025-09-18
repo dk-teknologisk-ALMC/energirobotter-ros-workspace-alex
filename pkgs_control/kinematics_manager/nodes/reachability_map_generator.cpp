@@ -15,7 +15,7 @@ public:
 
     void init()
     {
-        ik_manager_ = std::make_unique<TracIKManager>(this->shared_from_this(), base_link_, tip_link_, "robot_description", KDL::Vector{-0.2, 0.5, 0.0}, true);
+        ik_manager_ = std::make_shared<TracIKManager>(this->shared_from_this(), base_link_, tip_link_, "robot_description", KDL::Vector{-0.2, 0.5, 0.0}, false);
 
         if (!ik_manager_->initialize())
         {
@@ -40,9 +40,8 @@ public:
         double xmin = -0.8, xmax = 0.0;
         double ymin = 0.0, ymax = 0.8;
         double zmin = -0.4, zmax = 0.4;
-        double step = 0.5; // 10 cm resolution
+        double step = 0.05; // 5 cm resolution
 
-        // Write simple PLY header (ASCII point cloud)
         size_t nx = static_cast<size_t>((xmax - xmin) / step) + 1;
         size_t ny = static_cast<size_t>((ymax - ymin) / step) + 1;
         size_t nz = static_cast<size_t>((zmax - zmin) / step) + 1;
@@ -87,7 +86,7 @@ private:
     std::string tip_link_;
 
     // Member variables
-    std::unique_ptr<TracIKManager> ik_manager_;
+    std::shared_ptr<TracIKManager> ik_manager_;
     std::vector<Eigen::Vector3f> points_;
     size_t total_points_;
 
