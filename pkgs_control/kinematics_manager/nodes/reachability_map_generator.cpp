@@ -32,6 +32,13 @@ public:
             return;
         }
 
+        // Set desired orientation
+        KDL::Rotation orientation = KDL::Rotation::Quaternion(
+            -0.022358909249305725,
+            0.7071350812911987,
+            -0.02226993255317211,
+            0.706373929977417);
+
         // Workspace definition (meters)
         double xmin = -0.5, xmax = 0.5;
         double ymin = 0.0, ymax = 1.0;
@@ -57,8 +64,7 @@ public:
                     iter++;
 
                     // Pose with identity orientation
-                    KDL::Frame pose(KDL::Rotation::Identity(), KDL::Vector(x, y, z));
-
+                    KDL::Frame pose(orientation, KDL::Vector(x, y, z));
                     KDL::JntArray q_out;
 
                     if (ik_manager_->compute_ik(pose, q_out))
