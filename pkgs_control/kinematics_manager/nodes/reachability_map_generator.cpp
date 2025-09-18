@@ -46,12 +46,16 @@ public:
 
         RCLCPP_INFO(this->get_logger(), "Sampling a grid of %zu points.", total_points_);
 
+        size_t iter = 0;
+
         for (double x = xmin; x <= xmax && rclcpp::ok(); x += step)
         {
             for (double y = ymin; y <= ymax && rclcpp::ok(); y += step)
             {
                 for (double z = zmin; z <= zmax && rclcpp::ok(); z += step)
                 {
+                    iter++;
+
                     // Pose with identity orientation
                     KDL::Frame pose(KDL::Rotation::Identity(), KDL::Vector(x, y, z));
 
@@ -62,6 +66,11 @@ public:
                         points_.push_back(Eigen::Vector3f(x, y, z));
                         RCLCPP_INFO(this->get_logger(), "Reachable point nr. %zu!", points_.size());
                     }
+
+                    // Throttled progress log every 10000 ms
+                    double progress = 100.0 * static_cast<double>(iter) / total_points_;
+                    RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 10000,
+                                         "Progress: %.1f%%", progress);
                 }
             }
         }
