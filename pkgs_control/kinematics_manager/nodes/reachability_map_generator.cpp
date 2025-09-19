@@ -3,6 +3,8 @@
 
 #include <fstream>
 #include <iostream>
+#include <mutex>
+#include <future>
 
 class ReachabilityMapGenerator : public rclcpp::Node
 {
@@ -13,34 +15,17 @@ public:
         tip_link_ = this->declare_parameter<std::string>("tip_link", "link_left_hand");
     }
 
-    void init()
-    {
-        ik_manager_ = std::make_shared<TracIKManager>(this->shared_from_this(), base_link_, tip_link_, "robot_description", KDL::Vector{-0.2, 0.5, 0.0}, false);
-
-        if (!ik_manager_->initialize())
-        {
-            RCLCPP_FATAL(this->get_logger(), "Failed to initialize TRAC-IK for %s", tip_link_.c_str());
-            return;
-        }
-    }
-
     void generate_point_cloud()
     {
-        if (!ik_manager_)
-        {
-            RCLCPP_ERROR(this->get_logger(), "IK Manager not initialized!");
-            return;
-        }
-
         // Set desired orientation
         // KDL::Rotation orientation = KDL::Rotation::Quaternion(-0.022, 0.707, -0.022, 0.706); // Left handback towards +z
         KDL::Rotation orientation = KDL::Rotation::Quaternion(0.0, 0.0, 0.0, 1.0); // Left handback towards -x
 
         // Workspace definition (meters)
-        double xmin = -0.8, xmax = 0.0;
-        double ymin = 0.0, ymax = 0.8;
-        double zmin = -0.4, zmax = 0.4;
-        double step = 0.05; // 5 cm resolution
+        double xmin = -1.0, xmax = 1.0;
+        double ymin = 0.0, ymax = 1.0;
+        double zmin = -0.5, zmax = 0.5;
+        double step = 0.01; // 1 cm resolution
 
         size_t nx = static_cast<size_t>((xmax - xmin) / step) + 1;
         size_t ny = static_cast<size_t>((ymax - ymin) / step) + 1;
@@ -49,32 +34,72 @@ public:
 
         RCLCPP_INFO(this->get_logger(), "Sampling a grid of %zu points.", total_points_);
 
-        size_t iter = 0;
+        // Split X axis into 10 chunks
+        int num_chunks = 10;
+        double x_range = xmax - xmin;
+        double chunk_size = x_range / num_chunks;
 
-        for (double x = xmin; x <= xmax && rclcpp::ok(); x += step)
+        std::vector<std::future<std::vector<Eigen::Vector3f>>> futures;
+
+        // Capture only the things we need by value. Make a safe copy of node shared_ptr:
+        auto node_ptr = this->shared_from_this();
+        std::string base = base_link_;
+        std::string tip = tip_link_;
+        std::string urdf_param = "robot_description";
+
+        for (int chunk = 0; chunk < num_chunks; ++chunk)
         {
-            for (double y = ymin; y <= ymax && rclcpp::ok(); y += step)
-            {
-                for (double z = zmin; z <= zmax && rclcpp::ok(); z += step)
+            double x_start = xmin + chunk * chunk_size;
+            double x_end = (chunk == num_chunks - 1) ? xmax : (xmin + (chunk + 1) * chunk_size);
+
+            static std::mutex ik_mutex;
+
+            // Each task creates and uses its own TracIKManager instance (thread-local)
+            futures.push_back(std::async(std::launch::async, [=]()
+                                         {
+                std::vector<Eigen::Vector3f> local_points;
+                
+                // Build a thread-local TRAC-IK manager
+                auto local_ik = create_ik_manager_with_mutex();
+                
+                if (!local_ik->initialize())
                 {
-                    iter++;
-
-                    // Pose with identity orientation
-                    KDL::Frame pose(orientation, KDL::Vector(x, y, z));
-                    KDL::JntArray q_out;
-
-                    if (ik_manager_->compute_ik(pose, q_out))
-                    {
-                        points_.push_back(Eigen::Vector3f(x, y, z));
-                        RCLCPP_INFO(this->get_logger(), "Reachable point nr. %zu!", points_.size());
-                    }
-
-                    // Throttled progress log every 10000 ms
-                    double progress = 100.0 * static_cast<double>(iter) / total_points_;
-                    RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 10000,
-                                         "Progress: %.1f%%", progress);
+                    // initialization failed for this thread — return empty result
+                    RCLCPP_WARN(node_ptr->get_logger(), "Thread TRAC-IK initialize failed for chunk (%.3f..%.3f).", x_start, x_end);
+                    return local_points;
                 }
-            }
+                
+                
+                size_t count;
+
+                for (double x = x_start; x <= x_end && rclcpp::ok(); x += step)
+                {
+                    for (double y = ymin; y <= ymax && rclcpp::ok(); y += step)
+                    {
+                        for (double z = zmin; z <= zmax && rclcpp::ok(); z += step)
+                        {
+                            KDL::Frame pose(orientation, KDL::Vector(x, y, z));
+                            KDL::JntArray q_out;
+                            
+                            // Use the thread-local solver
+                            if (local_ik->compute_ik(pose, q_out))
+                            {
+                                local_points.emplace_back(x, y, z);
+                            }
+                            count++;
+                        }
+                    }
+                }
+                RCLCPP_INFO(this->get_logger(), "Chunk (%.3f..%.3f) processed %zu points.", x_start, x_end, count);
+
+                return local_points; }));
+        }
+
+        // Collect results (this blocks until all tasks complete)
+        for (auto &f : futures)
+        {
+            auto chunk_points = f.get();
+            points_.insert(points_.end(), chunk_points.begin(), chunk_points.end());
         }
 
         save_pointcloud();
@@ -86,9 +111,24 @@ private:
     std::string tip_link_;
 
     // Member variables
-    std::shared_ptr<TracIKManager> ik_manager_;
     std::vector<Eigen::Vector3f> points_;
     size_t total_points_;
+
+    std::shared_ptr<TracIKManager> create_ik_manager_with_mutex()
+    {
+        static std::mutex ik_mutex;
+        std::lock_guard<std::mutex> lock(ik_mutex);
+        return std::make_shared<TracIKManager>(
+            this->shared_from_this(),
+            base_link_,
+            tip_link_,
+            "robot_description",
+            KDL::Vector{-0.2, 0.5, 0.0},
+            0.001,
+            1e-5,
+            false,
+            TRAC_IK::SolveType::Distance);
+    }
 
     void save_pointcloud()
     {
@@ -119,7 +159,6 @@ int main(int argc, char **argv)
 
     auto node = std::make_shared<ReachabilityMapGenerator>();
 
-    node->init();
     node->generate_point_cloud();
 
     rclcpp::shutdown();
