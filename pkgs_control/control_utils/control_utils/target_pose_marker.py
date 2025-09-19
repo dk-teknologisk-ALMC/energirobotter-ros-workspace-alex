@@ -81,6 +81,9 @@ class TargetPoseMarker(Node):
         pose_msg.pose = feedback.pose
         self.pub.publish(pose_msg)
 
+        quat = feedback.pose.orientation
+        self.get_logger().info(f"Rotation: {quat.x}, {quat.y}, {quat.z}, {quat.w}")
+
 
 def main(args=None):
     rclpy.init(args=args)

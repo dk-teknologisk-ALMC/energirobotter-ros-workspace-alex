@@ -52,14 +52,19 @@ private:
   void create_solver(
       std::string key,
       std::string tip_link,
-      KDL::Vector reachability_space_center)
+      KDL::Vector reachability_space_center,
+      bool allow_approximation = true)
   {
     auto ik_manager = std::make_unique<TracIKManager>(
         this->shared_from_this(),
         base_link_,
         tip_link,
         "robot_description",
-        reachability_space_center);
+        reachability_space_center,
+        0.001,
+        1e-5,
+        allow_approximation,
+        TRAC_IK::SolveType::Distance);
 
     if (!ik_manager->initialize())
     {

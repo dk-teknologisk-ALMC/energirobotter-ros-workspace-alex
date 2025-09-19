@@ -20,11 +20,22 @@ add_executable(trac_ik_node nodes/trac_ik_node.cpp)
 ament_target_dependencies(trac_ik_node rclcpp geometry_msgs sensor_msgs)
 target_link_libraries(trac_ik_node trac_ik_manager)
 
+add_executable(reachability_map_generator nodes/reachability_map_generator.cpp)
+ament_target_dependencies(reachability_map_generator rclcpp)
+target_link_libraries(reachability_map_generator trac_ik_manager)
+
 # Install targets
 install(TARGETS
   trac_ik_manager 
   trac_ik_node 
+  reachability_map_generator
   DESTINATION lib/${PROJECT_NAME}
+)
+
+# Install directories
+install(DIRECTORY 
+    launch
+  DESTINATION share/${PROJECT_NAME}
 )
 
 ament_package()

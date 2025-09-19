@@ -19,6 +19,7 @@ setup(
     tests_require=["pytest"],
     entry_points={
         "console_scripts": [
+            f"pointcloud_publisher = {package_name}.pointcloud_publisher:main",
             f"target_pose_marker = {package_name}.target_pose_marker:main",
         ],
     },
