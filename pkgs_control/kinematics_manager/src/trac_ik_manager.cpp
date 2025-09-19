@@ -8,8 +8,9 @@ TracIKManager::TracIKManager(
     KDL::Vector reachability_space_center,
     double timeout,
     double eps,
+    bool allow_approximation,
     TRAC_IK::SolveType solve_type)
-    : node_(node), reachability_space_center_(reachability_space_center), eps_(eps), target_pose_(reachability_space_center)
+    : node_(node), reachability_space_center_(reachability_space_center), eps_(eps), allow_approximation_(allow_approximation), target_pose_(reachability_space_center)
 {
     solver_ = std::make_unique<TRAC_IK::TRAC_IK>(
         node_, base_link, tip_link, urdf_param, timeout, eps, solve_type);
@@ -67,12 +68,23 @@ bool TracIKManager::compute_ik_internal(const KDL::Frame &target_pose, KDL::JntA
 
     if (rc < 0)
     {
-        find_boundary_bisection(nominal, target_pose, q_out);
-        RCLCPP_INFO_THROTTLE(node_->get_logger(), *node_->get_clock(), 1000, "Approximating IK solution...");
+        if (allow_approximation_)
+        {
+            find_boundary_bisection(nominal, target_pose, q_out);
+            RCLCPP_INFO_THROTTLE(
+                node_->get_logger(), *node_->get_clock(), 1000,
+                "IK solution approximated");
+            q_last_valid_ = q_out; // store fallback solution
+            return true;           // success via approximation
+        }
+        else
+        {
+            return false; // no solution and approximation disabled
+        }
     }
 
     q_last_valid_ = q_out; // Update last valid solution
-    return rc >= 0;
+    return true;           // direct IK success
 }
 
 KDL::JntArray TracIKManager::find_boundary_bisection(
