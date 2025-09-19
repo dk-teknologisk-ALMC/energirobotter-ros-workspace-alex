@@ -13,6 +13,7 @@ public:
     {
         base_link_ = this->declare_parameter<std::string>("base_link", "link_torso");
         tip_link_ = this->declare_parameter<std::string>("tip_link", "link_left_hand");
+        step_size_ = this->declare_parameter<double>("step_size", 0.02); // 2 cm resolution
     }
 
     void generate_point_cloud()
@@ -25,11 +26,10 @@ public:
         double xmin = -1.0, xmax = 1.0;
         double ymin = 0.0, ymax = 1.0;
         double zmin = -0.5, zmax = 0.5;
-        double step = 0.01; // 1 cm resolution
 
-        size_t nx = static_cast<size_t>((xmax - xmin) / step) + 1;
-        size_t ny = static_cast<size_t>((ymax - ymin) / step) + 1;
-        size_t nz = static_cast<size_t>((zmax - zmin) / step) + 1;
+        size_t nx = static_cast<size_t>((xmax - xmin) / step_size_) + 1;
+        size_t ny = static_cast<size_t>((ymax - ymin) / step_size_) + 1;
+        size_t nz = static_cast<size_t>((zmax - zmin) / step_size_) + 1;
         total_points_ = nx * ny * nz;
 
         RCLCPP_INFO(this->get_logger(), "Sampling a grid of %zu points.", total_points_);
@@ -75,11 +75,11 @@ public:
                     return local_points;
                 }
 
-                for (double x = x_start; x <= x_end && rclcpp::ok(); x += step)
+                for (double x = x_start; x <= x_end && rclcpp::ok(); x += step_size_)
                 {
-                    for (double y = ymin; y <= ymax && rclcpp::ok(); y += step)
+                    for (double y = ymin; y <= ymax && rclcpp::ok(); y += step_size_)
                     {
-                        for (double z = zmin; z <= zmax && rclcpp::ok(); z += step)
+                        for (double z = zmin; z <= zmax && rclcpp::ok(); z += step_size_)
                         {
                             KDL::Frame pose(orientation, KDL::Vector(x, y, z));
                             KDL::JntArray q_out;
@@ -114,6 +114,7 @@ private:
     // Node parameters
     std::string base_link_;
     std::string tip_link_;
+    double step_size_;
 
     // Member variables
     std::vector<Eigen::Vector3f> points_;
