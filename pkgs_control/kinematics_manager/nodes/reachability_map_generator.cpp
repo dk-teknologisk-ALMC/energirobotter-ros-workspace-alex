@@ -41,12 +41,6 @@ public:
 
         std::vector<std::future<std::vector<Eigen::Vector3f>>> futures;
 
-        // Capture only the things we need by value. Make a safe copy of node shared_ptr:
-        auto node_ptr = this->shared_from_this();
-        std::string base = base_link_;
-        std::string tip = tip_link_;
-        std::string urdf_param = "robot_description";
-
         for (int chunk = 0; chunk < num_chunks; ++chunk)
         {
             double x_start = xmin + chunk * chunk_size;
@@ -68,9 +62,6 @@ public:
                     RCLCPP_WARN(node_ptr->get_logger(), "Thread TRAC-IK initialize failed for chunk (%.3f..%.3f).", x_start, x_end);
                     return local_points;
                 }
-                
-                
-                size_t count;
 
                 for (double x = x_start; x <= x_end && rclcpp::ok(); x += step)
                 {
@@ -86,11 +77,9 @@ public:
                             {
                                 local_points.emplace_back(x, y, z);
                             }
-                            count++;
                         }
                     }
                 }
-                RCLCPP_INFO(this->get_logger(), "Chunk (%.3f..%.3f) processed %zu points.", x_start, x_end, count);
 
                 return local_points; }));
         }
