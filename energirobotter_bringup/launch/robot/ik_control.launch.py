@@ -20,6 +20,7 @@ def launch_setup(context, *args, **kwargs):
     rviz = LaunchConfiguration("rviz")
     interactive_marker = LaunchConfiguration("interactive_marker")
     description_package = LaunchConfiguration("description_package")
+    ik_solver = LaunchConfiguration("ik_solver")
 
     urdf_file = PathJoinSubstitution(
         [FindPackageShare(description_package), "urdf", "phobos_generated.urdf"]
@@ -43,12 +44,20 @@ def launch_setup(context, *args, **kwargs):
         output="screen",
     )
 
-    ik_node = Node(
-        package="elrik_kdl_kinematics",
-        executable="elrik_kdl_kinematics_node",
-        parameters=[{"robot_description": robot_description}],
-        output="screen",
-    )
+    if ik_solver.perform(context) == "trac_ik":
+        ik_node = Node(
+            package="kinematics_manager",
+            executable="trac_ik_node",
+            parameters=[{"robot_description": robot_description}],
+            output="screen",
+        )
+    else:
+        ik_node = Node(
+            package="elrik_kdl_kinematics",
+            executable="elrik_kdl_kinematics_node",
+            parameters=[{"robot_description": robot_description}],
+            output="screen",
+        )
 
     rviz_node = Node(
         package="rviz2",
@@ -95,6 +104,12 @@ def generate_launch_description():
                 default_value="wattson_description",
                 description="Package in workspace that contains robot URDF description.",
                 choices=["elrik_description", "wattson_description"],
+            ),
+            DeclareLaunchArgument(
+                "ik_solver",
+                default_value="kdl",
+                description="Choose IK solver to use.",
+                choices=["kdl", "trac_ik"],
             ),
             OpaqueFunction(function=launch_setup),
         ]
