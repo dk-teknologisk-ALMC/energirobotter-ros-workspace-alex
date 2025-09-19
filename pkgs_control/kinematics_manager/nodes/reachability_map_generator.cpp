@@ -34,6 +34,18 @@ public:
 
         RCLCPP_INFO(this->get_logger(), "Sampling a grid of %zu points.", total_points_);
 
+        // Start a progress monitor thread
+        processed_points_ = 0; // Reset counter
+        std::atomic<bool> running{true};
+        std::thread progress_thread([this, &running]()
+                                    {
+            while (running) {
+                double progress = 100.0 * static_cast<double>(processed_points_) / total_points_;
+                RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 5000,
+                                     "Progress: %.1f%% (%zu/%zu)", progress, processed_points_.load(), total_points_);
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            } });
+
         // Split X axis into 10 chunks
         int num_chunks = 10;
         double x_range = xmax - xmin;
@@ -77,6 +89,7 @@ public:
                             {
                                 local_points.emplace_back(x, y, z);
                             }
+                            processed_points_++;
                         }
                     }
                 }
@@ -91,6 +104,9 @@ public:
             points_.insert(points_.end(), chunk_points.begin(), chunk_points.end());
         }
 
+        running = false;
+        progress_thread.join();
+
         save_pointcloud();
     }
 
@@ -102,6 +118,7 @@ private:
     // Member variables
     std::vector<Eigen::Vector3f> points_;
     size_t total_points_;
+    std::atomic<size_t> processed_points_;
 
     std::shared_ptr<TracIKManager> create_ik_manager_with_mutex()
     {
