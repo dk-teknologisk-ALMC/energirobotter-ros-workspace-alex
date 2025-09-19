@@ -71,7 +71,7 @@ public:
                 if (!local_ik->initialize())
                 {
                     // initialization failed for this thread — return empty result
-                    RCLCPP_WARN(node_ptr->get_logger(), "Thread TRAC-IK initialize failed for chunk (%.3f..%.3f).", x_start, x_end);
+                    RCLCPP_WARN(this->get_logger(), "Thread TRAC-IK initialize failed for chunk (%.3f..%.3f).", x_start, x_end);
                     return local_points;
                 }
 
