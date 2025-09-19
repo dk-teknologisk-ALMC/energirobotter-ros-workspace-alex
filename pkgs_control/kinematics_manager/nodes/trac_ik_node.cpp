@@ -61,7 +61,10 @@ private:
         tip_link,
         "robot_description",
         reachability_space_center,
-        allow_approximation);
+        0.001,
+        1e-5,
+        allow_approximation,
+        TRAC_IK::SolveType::Distance);
 
     if (!ik_manager->initialize())
     {
