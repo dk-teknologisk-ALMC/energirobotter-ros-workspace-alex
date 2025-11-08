@@ -64,7 +64,6 @@ class ServoManagerNode(Node):
         # Arms
         json_files_arms_left = [
             f"{config_folder_path}/servo_arm_left_params.json",
-            f"{config_folder_path}/servo_head_params.json",
         ]
         self.servo_driver_arms_left = DriverWaveshare(
             json_files_arms_left,
@@ -76,6 +75,7 @@ class ServoManagerNode(Node):
 
         json_files_arms_right = [
             f"{config_folder_path}/servo_arm_right_params.json",
+            f"{config_folder_path}/servo_head_params.json",
         ]
         self.servo_driver_arms_right = DriverWaveshare(
             json_files_arms_right,
