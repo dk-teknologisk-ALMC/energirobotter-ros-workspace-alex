@@ -1,7 +1,94 @@
 {
     "group": {
         "name": "hand_right",
+        "servo_model": "SC09",
         "synchronise_speed": false
     },
-    "servos": {}
+    "servos": {
+        "hand_right_pinky": {
+            "servo_id": 29,
+            "dir": 1,
+            "gear_ratio": 1,
+            "pwm_min": 0,
+            "pwm_max": 1024,
+            "angle_min": 0,
+            "angle_max": 300,
+            "angle_software_min": 150,
+            "angle_software_max": 240,
+            "angle_speed_max": 300,
+            "default_position": 150,
+            "feedback_enabled": false,
+            "gain_P": 1.0,
+            "gain_I": 0.0,
+            "gain_D": 0.0
+        },
+        "hand_right_ring": {
+            "servo_id": 28,
+            "dir": -1,
+            "gear_ratio": 1,
+            "pwm_min": 0,
+            "pwm_max": 1024,
+            "angle_min": 0,
+            "angle_max": 300,
+            "angle_software_min": 170,
+            "angle_software_max": 260,
+            "angle_speed_max": 300,
+            "default_position": 170,
+            "feedback_enabled": false,
+            "gain_P": 1.0,
+            "gain_I": 0.0,
+            "gain_D": 0.0
+        },
+        "hand_right_middle": {
+            "servo_id": 27,
+            "dir": -1,
+            "gear_ratio": 1,
+            "pwm_min": 0,
+            "pwm_max": 1024,
+            "angle_min": 0,
+            "angle_max": 300,
+            "angle_software_min": 60,
+            "angle_software_max": 150,
+            "angle_speed_max": 300,
+            "default_position": 60,
+            "feedback_enabled": false,
+            "gain_P": 1.0,
+            "gain_I": 0.0,
+            "gain_D": 0.0
+        },
+        "hand_right_index": {
+            "servo_id": 26,
+            "dir": -1,
+            "gear_ratio": 1,
+            "pwm_min": 0,
+            "pwm_max": 1024,
+            "angle_min": 0,
+            "angle_max": 300,
+            "angle_software_min": 60,
+            "angle_software_max": 160,
+            "angle_speed_max": 300,
+            "default_position": 60,
+            "feedback_enabled": false,
+            "gain_P": 1.0,
+            "gain_I": 0.0,
+            "gain_D": 0.0
+        },
+        "hand_right_thumb": {
+            "servo_id": 25,
+            "dir": 1,
+            "gear_ratio": 1,
+            "pwm_min": 0,
+            "pwm_max": 1024,
+            "angle_min": 0,
+            "angle_max": 300,
+            "angle_software_min": 100,
+            "angle_software_max": 190,
+            "angle_speed_max": 300,
+            "default_position": 100,
+            "feedback_enabled": false,
+            "gain_P": 1.0,
+            "gain_I": 0.0,
+            "gain_D": 0.0
+        }
+    }
 }

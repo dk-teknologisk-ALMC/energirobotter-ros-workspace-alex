@@ -17,21 +17,26 @@ call_times = deque()
 
 class ElrikDriverHand(DriverServos):
 
+    def __init__(self, config_files):
+        super().__init__(config_files)
+
+        self.driver_object = None
+
     def setup_driver(self):
 
         self.logger.info("Initializing I2C communication with PCA9685...")
 
         try:
             i2c = board.I2C()
-            pca = PCA9685(i2c)
-            pca.frequency = 50
+            self.driver_object = PCA9685(i2c)
+            self.driver_object.frequency = 50
 
             self.logger.info("I2C communication succesful")
-            return pca
+            return True
 
         except Exception as e:
             self.logger.error(f"Failed to open port: {e}")
-            return None
+            return False
 
     @staticmethod
     def map_finger_to_servo(servo: ServoControl, angle_cmd):
@@ -46,7 +51,7 @@ class ElrikDriverHand(DriverServos):
 
         return angle_mapped
 
-    def send_command(self, servo: ServoControl, pwm):
+    def write_command(self, servo: ServoControl, pwm):
 
         now = time.time()
         call_times.append(now)

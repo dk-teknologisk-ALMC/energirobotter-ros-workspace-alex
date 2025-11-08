@@ -62,11 +62,8 @@ class DriverServos(ABC):
                 self.logger.info(f"{servo_name}")
         self.logger.info(f"--------")
 
-        # Setup driver
-        self.driver_object = self.setup_driver()
-        self.coms_active = self.driver_object is not None
-
         # Member parameters
+        self.coms_active = False
         self.speed_min = 10.0
         self.distance_threshold_min = 5
 
@@ -112,17 +109,6 @@ class DriverServos(ABC):
         pass
 
     @abstractmethod
-    def send_command(self, servo: ServoControl, pwm):
-        """
-        Abstract method to send a command to a servo.
-
-        Args:
-            servo (ServoControl): Servo object containing servo attributes.
-            pwm (float): PWM value to command the servo.
-        """
-        pass
-
-    @abstractmethod
     def read_feedback(self, servo: ServoControl):
         """
         Abstract method to read feedback from the servos.
@@ -132,6 +118,21 @@ class DriverServos(ABC):
             servo (ServoControl): Servo object containing servo attributes.
         """
         pass
+
+    @abstractmethod
+    def write_command(self, servo: ServoControl, pwm):
+        """
+        Abstract method to send a command to a servo.
+
+        Args:
+            servo (ServoControl): Servo object containing servo attributes.
+            pwm (float): PWM value to command the servo.
+        """
+        pass
+
+    def initialize(self):
+        """Call after construction to set up driver and internal flags."""
+        self.coms_active = self.setup_driver()
 
     def command_servos(self, command_dict: dict):
         """
@@ -194,7 +195,7 @@ class DriverServos(ABC):
             futures = [
                 executor.submit(self._update_servo_feedback, name)
                 for name in self.servos.keys()
-                if self.servos[name].feedback_enabled
+                # if self.servos[name].feedback_enabled
             ]
             for future in futures:
                 try:
@@ -219,6 +220,15 @@ class DriverServos(ABC):
             dict: A dictionary mapping servo names to current angles.
         """
         return {name: float(self.servos[name].angle) for name in self.servos}
+
+    def get_servo_temperatures(self):
+        """
+        Generate a dictionary of current temperatures for all servos.
+
+        Returns:
+            dict: A dictionary mapping servo names to current temperatures.
+        """
+        return {name: float(self.servos[name].temperature) for name in self.servos}
 
     def _compute_relative_speeds(
         self, servo_dict, command_dict, synchronise_speed, ignored_keys=[]
@@ -255,6 +265,10 @@ class DriverServos(ABC):
             servo_name for servo_name in servos_affected if servo_name in command_dict
         ]
 
+        # Return early if no servos meet criteria
+        if not servos_affected:
+            return speeds_allowed
+
         longest_distance = max(
             abs(
                 command_dict[name]
@@ -265,7 +279,7 @@ class DriverServos(ABC):
         )
 
         if not longest_distance or longest_distance < self.distance_threshold_min:
-            speeds_allowed = {name: self.speed_min for name in servo_dict.keys()}
+            speeds_allowed.update({name: self.speed_min for name in servos_affected})
             return speeds_allowed
 
         # Compute allowed speed based on distance to travel
@@ -294,14 +308,13 @@ class DriverServos(ABC):
             return
 
         servo = self.servos[name]
-        angle_target = command + servo.default_position
-
-        angle_cmd, pwm_cmd = servo.reach_angle_direct(angle_target, speed)
+        angle_target = servo.logic_to_physical(command)
+        pwm_cmd = servo.compute_command(angle_target, speed)
 
         if not self._validate_command(servo, pwm_cmd):
             return
 
-        self.send_command(servo, pwm_cmd)
+        self.write_command(servo, pwm_cmd)
 
     def _update_servo_feedback(self, name):
         """
@@ -310,11 +323,11 @@ class DriverServos(ABC):
         Args:
             name (str): Name of the servo to update feedback for.
         """
-        feedback_pwm = self.read_feedback(self.servos[name])
+        feedback = self.read_feedback(self.servos[name])
 
-        if feedback_pwm is not None:
-            # WRONG! Need to update the right dict
-            self.servos[name].set_feedback_pwm(feedback_pwm)
+        if feedback is not None:
+            self.servos[name].set_feedback_pwm(feedback["position"])
+            self.servos[name].set_feedback_temperature(feedback["temperature"])
 
     def _validate_command(self, servo: ServoControl, pwm):
         """
