@@ -16,7 +16,7 @@ class MockCameraNode(Node):
             self.get_parameter("timer_period").get_parameter_value().double_value
         )
 
-        self.declare_parameter("use_compressed", False)
+        self.declare_parameter("use_compressed", True)
         self.use_compressed = (
             self.get_parameter("use_compressed").get_parameter_value().bool_value
         )
