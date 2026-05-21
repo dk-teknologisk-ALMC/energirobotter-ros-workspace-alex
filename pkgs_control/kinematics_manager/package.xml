@@ -11,7 +11,7 @@
 
   <depend>rclcpp</depend>
   <depend>trac_ik_lib</depend>
-  <depend>orocos_kdl</depend>
+  <depend>liborocos-kdl-dev</depend>
   <depend>sensor_msgs</depend>
   
   <test_depend>ament_lint_auto</test_depend>
