@@ -62,13 +62,16 @@ class ServoManagerNode(Node):
 
         # Configure servo managers
         # Arms
+        # NOTE: ports are addressed via /dev/serial/by-path/ so the assignment
+        # is bound to the physical USB port on the Jetson, not to plug-in
+        # order. The three ESP32 boxes can now be plugged in in any order.
         json_files_arms_left = [
             f"{config_folder_path}/servo_arm_left_params.json",
         ]
         self.servo_driver_arms_left = DriverWaveshare(
             json_files_arms_left,
             self.control_frequency,
-            port_path="/dev/ttyUSB0",
+            port_path="/dev/serial/by-path/platform-3610000.usb-usb-0:2.2:1.0-port0",
             baudrate=921600,
         )
         self.servo_driver_arms_left.initialize()
@@ -80,7 +83,7 @@ class ServoManagerNode(Node):
         self.servo_driver_arms_right = DriverWaveshare(
             json_files_arms_right,
             self.control_frequency,
-            port_path="/dev/ttyUSB1",
+            port_path="/dev/serial/by-path/platform-3610000.usb-usb-0:2.3:1.0-port0",
             baudrate=921600,
         )
         self.servo_driver_arms_right.initialize()
@@ -93,7 +96,7 @@ class ServoManagerNode(Node):
         self.servo_driver_hands = DriverWaveshare(
             json_files_hands,
             self.control_frequency,
-            port_path="/dev/ttyUSB2",
+            port_path="/dev/serial/by-path/platform-3610000.usb-usb-0:2.1:1.0-port0",
             baudrate=921600,
         )
         self.servo_driver_hands.initialize()
