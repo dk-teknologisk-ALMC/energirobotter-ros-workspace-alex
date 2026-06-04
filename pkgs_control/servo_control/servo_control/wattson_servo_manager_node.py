@@ -46,6 +46,16 @@ class ServoManagerNode(Node):
         )
 
         # Publishers
+        # /joint_states_feedback mirrors /joint_states but carries the
+        # *actual* servo angles read back from the hardware via
+        # DriverWaveshare.get_servo_angles(). Consumers are commissioning
+        # tools (step_response_node, repeatability_node) that need the real
+        # response in order to characterise the servo controller (rise time,
+        # overshoot, repeatability spread). Published in SI units (rad) to
+        # stay consistent with the command topic.
+        self.pub_joints_feedback = self.create_publisher(
+            JointState, "/joint_states_feedback", 10
+        )
 
         # DEBUG
         self.pub_speeds = self.create_publisher(JointState, "/log_speeds", 10)
@@ -138,6 +148,14 @@ class ServoManagerNode(Node):
         self.servo_driver_arms_right.update_feedback()
         self.servo_driver_arms_right.command_servos(self.servo_commands_arms)
 
+        # Publish actual angles from all arm drivers as feedback. Hands are
+        # published from their own (slower) callback below, so we only merge
+        # arm drivers here. Angles come back in degrees from the driver and
+        # are converted to radians to match the convention on /joint_states.
+        self._publish_feedback(
+            [self.servo_driver_arms_left, self.servo_driver_arms_right]
+        )
+
         # # DEBUG
         # temperatures = self.servo_driver_arms.get_servo_temperatures()
         # # positions = self.servo_driver_arms.get_servo_angles()
@@ -159,6 +177,32 @@ class ServoManagerNode(Node):
         # Update servos
         self.servo_driver_hands.update_feedback()
         self.servo_driver_hands.command_servos(self.servo_commands_hands)
+
+        # Hands run on their own timer; publish their feedback separately.
+        self._publish_feedback([self.servo_driver_hands])
+
+    def _publish_feedback(self, drivers):
+        """Aggregate get_servo_angles() from one or more drivers and publish
+        them as a sensor_msgs/JointState on /joint_states_feedback.
+
+        Angles are stored internally in degrees (matches command path), so we
+        convert to radians here so the topic mirrors /joint_states exactly.
+        """
+        names = []
+        positions_deg = []
+        for driver in drivers:
+            angles = driver.get_servo_angles()
+            names.extend(angles.keys())
+            positions_deg.extend(angles.values())
+
+        if not names:
+            return
+
+        msg = JointState()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.name = names
+        msg.position = list(np.deg2rad(positions_deg))
+        self.pub_joints_feedback.publish(msg)
 
 
 def main(args=None):

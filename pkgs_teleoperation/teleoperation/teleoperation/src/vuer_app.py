@@ -72,8 +72,8 @@ class VuerApp(VRInterfaceApp):
                 # Establish ngrok connectivity
                 self.ngrok_listener = ngrok.forward(
                     self.vuer_port,
-                    domain="gladly-destined-lacewing.ngrok-free.app",
                     authtoken_from_env=True,
+                    domain="gladly-destined-lacewing.ngrok-free.app",
                 )
 
                 self.offer_route = "/offer"

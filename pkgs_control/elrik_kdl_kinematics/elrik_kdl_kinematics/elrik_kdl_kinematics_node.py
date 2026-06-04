@@ -42,9 +42,6 @@ class ElrikKdlKinematics(Node):
         # Publishers
         self.joint_state_pub = self.create_publisher(JointState, "/joint_states", 10)
 
-        # Timers
-        self.timer = self.create_timer(0.1, self.callback_timer_publish_joint_states)
-
         # Node variables
         self.urdf = self.retrieve_urdf()
 
@@ -96,6 +93,11 @@ class ElrikKdlKinematics(Node):
                 end_effector.ik_solver = ik_solver
 
         self.get_logger().info(f"Kinematics node ready!")
+
+        # Timer (created last so callback only fires after end_effectors are
+        # fully initialised — otherwise the timer can fire during
+        # retrieve_urdf()'s spin_once and AttributeError on self.end_effectors)
+        self.timer = self.create_timer(0.1, self.callback_timer_publish_joint_states)
 
     ############## Functions ##############
 
