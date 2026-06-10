@@ -23,6 +23,7 @@ setup(
             'calibration_tool_node = arm_commissioning.calibration_tool_node:main',
             'step_response_node = arm_commissioning.step_response_node:main',
             'repeatability_node = arm_commissioning.repeatability_node:main',
+            'power_monitor_node = arm_commissioning.power_monitor_node:main',
         ],
     },
 )

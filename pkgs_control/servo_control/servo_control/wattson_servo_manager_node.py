@@ -57,6 +57,17 @@ class ServoManagerNode(Node):
             JointState, "/joint_states_feedback", 10
         )
 
+        # /servo_power carries per-servo voltage, current and instantaneous
+        # power read from the ST3215 PRESENT_VOLTAGE/CURRENT registers.
+        # Encoded as JointState so we get a free per-element name[] mapping:
+        #   position[i] = voltage [V]
+        #   velocity[i] = current [A]
+        #   effort[i]   = power   [W]
+        # Consumed by power_monitor_node (live viewer + CSV/PNG logging).
+        self.pub_servo_power = self.create_publisher(
+            JointState, "/servo_power", 10
+        )
+
         # DEBUG
         self.pub_speeds = self.create_publisher(JointState, "/log_speeds", 10)
         # DEBUG END
@@ -155,6 +166,9 @@ class ServoManagerNode(Node):
         self._publish_feedback(
             [self.servo_driver_arms_left, self.servo_driver_arms_right]
         )
+        self._publish_power(
+            [self.servo_driver_arms_left, self.servo_driver_arms_right]
+        )
 
         # # DEBUG
         # temperatures = self.servo_driver_arms.get_servo_temperatures()
@@ -176,7 +190,8 @@ class ServoManagerNode(Node):
 
         # Update servos
         self.servo_driver_hands.update_feedback()
-        self.servo_driver_hands.command_servos(self.servo_commands_hands)
+        self.servo_driver_hands.command_servos(self.servo
+        self._publish_power([self.servo_driver_hands])_commands_hands)
 
         # Hands run on their own timer; publish their feedback separately.
         self._publish_feedback([self.servo_driver_hands])
@@ -201,7 +216,42 @@ class ServoManagerNode(Node):
         msg = JointState()
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.name = names
-        msg.position = list(np.deg2rad(positions_deg))
+        msg.position = list(np.deg2rad(positi
+
+    def _publish_power(self, drivers):
+        """Aggregate per-servo voltage / current / power from one or more
+        drivers and publish them on /servo_power.
+
+        Reuses the JointState schema so consumers get the per-element name
+        mapping for free:
+            position[i] = voltage [V]
+            velocity[i] = current [A]
+            effort[i]   = power   [W]
+        """
+        names = []
+        voltages = []
+        currents = []
+        powers = []
+        for driver in drivers:
+            v = driver.get_servo_voltages()
+            i = driver.get_servo_currents()
+            p = driver.get_servo_powers()
+            for name in v:
+                names.append(name)
+                voltages.append(v[name])
+                currents.append(i[name])
+                powers.append(p[name])
+
+        if not names:
+            return
+
+        msg = JointState()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.name = names
+        msg.position = voltages
+        msg.velocity = currents
+        msg.effort = powers
+        self.pub_servo_power.publish(msg)ons_deg))
         self.pub_joints_feedback.publish(msg)
 
 

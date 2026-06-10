@@ -87,6 +87,12 @@ class ServoControl:
         )
 
         self.temperature = 0.0
+        # Power-budget telemetry. Voltage in volts, current in amps (signed —
+        # positive when the servo draws current to drive the load, negative
+        # during regenerative braking). Populated by the driver's feedback
+        # loop from the ST3215 PRESENT_VOLTAGE/CURRENT registers.
+        self.voltage = 0.0
+        self.current = 0.0
 
         self.time_prev = None
         self.error_acc = 0.0
@@ -120,6 +126,36 @@ class ServoControl:
 
         self.pwm = feedback_pwm
         self.angle = self.gearing_in(self.pwm_2_angle(feedback_pwm), self.gear_ratio)
+
+    def set_feedback_voltage(self, raw_voltage):
+        """
+        Updates the servo's input voltage from the PRESENT_VOLTAGE register.
+
+        The ST3215 returns a single byte where each unit equals 0.1 V
+        (Waveshare datasheet table 3.2.2). Stored in volts for direct use
+        in power calculations (P = V * I).
+
+        Args:
+            raw_voltage (int): Raw register value (1 byte).
+        """
+        self.voltage = float(raw_voltage) * 0.1
+
+    def set_feedback_current(self, raw_current):
+        """
+        Updates the servo's instantaneous current from PRESENT_CURRENT.
+
+        ST3215 returns a 2-byte value where bit 15 encodes direction (1 =
+        regenerative / reverse-load) and the remaining 15 bits encode the
+        magnitude in units of 6.5 mA. Stored as signed amperes.
+
+        Args:
+            raw_current (int): Raw register value (2 bytes).
+        """
+        if raw_current & 0x8000:
+            magnitude = -(raw_current & 0x7FFF)
+        else:
+            magnitude = raw_current
+        self.current = magnitude * 6.5e-3
 
     def set_feedback_temperature(self, feedback_temperature):
         """

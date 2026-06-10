@@ -230,6 +230,38 @@ class DriverServos(ABC):
         """
         return {name: float(self.servos[name].temperature) for name in self.servos}
 
+    def get_servo_voltages(self):
+        """
+        Generate a dictionary of input voltages for all servos.
+
+        Returns:
+            dict: A dictionary mapping servo names to voltage in volts.
+        """
+        return {name: float(self.servos[name].voltage) for name in self.servos}
+
+    def get_servo_currents(self):
+        """
+        Generate a dictionary of instantaneous currents for all servos.
+
+        Returns:
+            dict: A dictionary mapping servo names to current in amperes
+                  (signed — negative values indicate regenerative load).
+        """
+        return {name: float(self.servos[name].current) for name in self.servos}
+
+    def get_servo_powers(self):
+        """
+        Generate a dictionary of instantaneous electrical power (P = V * I)
+        per servo, in watts. Used for power-budget characterisation.
+
+        Returns:
+            dict: A dictionary mapping servo names to power in watts.
+        """
+        return {
+            name: float(self.servos[name].voltage * self.servos[name].current)
+            for name in self.servos
+        }
+
     def _compute_relative_speeds(
         self, servo_dict, command_dict, synchronise_speed, ignored_keys=[]
     ):
@@ -328,6 +360,13 @@ class DriverServos(ABC):
         if feedback is not None:
             self.servos[name].set_feedback_pwm(feedback["position"])
             self.servos[name].set_feedback_temperature(feedback["temperature"])
+            # Power-budget telemetry. Voltage + current are already inside
+            # the SyncRead window (registers 56..70) so reading them here
+            # adds no extra bus traffic.
+            if "voltage" in feedback:
+                self.servos[name].set_feedback_voltage(feedback["voltage"])
+            if "current" in feedback:
+                self.servos[name].set_feedback_current(feedback["current"])
 
     def _validate_command(self, servo: ServoControl, pwm):
         """
