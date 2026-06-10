@@ -511,6 +511,210 @@ en software-fejl.
 
 ---
 
+### 6.7 Kinematics-node timer-race ved opstart (2026-05-28)
+
+**Hvad:**
+`elrik_kdl_kinematics_node` crashede sporadisk under opstart med
+`AttributeError: 'ElrikKdlKinematics' object has no attribute 'end_effectors'`.
+Fixet ved at flytte `create_timer(0.1, callback_timer_publish_joint_states)`
+fra første del af `__init__` til slutningen, efter `retrieve_urdf()` og alle
+end-effector-felter er initialiseret.
+
+**Hvorfor:**
+- `rclpy`-timere er **armed med det samme** ved `create_timer`.
+- `retrieve_urdf()` kalder `rclpy.spin_once()` for at vente på
+  `/robot_description`-topicet. Mens spin'en kører, kan executor'en
+  dispatche timer-callback'et.
+- Hvis det sker før `self.end_effectors = …`-linjen længere nede i
+  `__init__`, så fejler callback'et ved første attribut-adgang.
+- Timing-race: optræder kun nogle gange (når `/robot_description` er
+  langsom nok til at trigge én tick på 100 ms-timeren under spin'en).
+
+**Implementering:**
+- Fil: `pkgs_control/elrik_kdl_kinematics/elrik_kdl_kinematics/elrik_kdl_kinematics_node.py`
+- Commit: `885aa06` (samme commit som step_response/repeatability — fundet
+  fordi step-response-pipeline-end-to-end-test ramte fejlen ved opstart af
+  IK-noden).
+- Diff: 4 linjer flyttet — `create_timer`-kaldet udklippet fra linje 45-46
+  og indsat efter "Kinematics node ready!"-loggen, med kommentar der
+  forklarer rækkefølge-kravet.
+
+**Test:**
+- Manuelt verificeret: 10 successive starts af `kinematics_manager`-launch'en
+  uden AttributeError-stacktrace.
+
+**Til rapport:**
+- Egnet som lille bullet i et "diskussion af software-stabilitet"- eller
+  "lessons learned"-afsnit. Ikke en hovedhistorie, men illustrerer en
+  konkret rclpy-fælde værd at advare om: timer-creation skal være sidste
+  trin i `__init__`, ellers risikerer man dispatch under konstruktion.
+
+---
+
+### 6.8 Power-monitor stack — per-servo elektrisk telemetri (2026-06-10)
+
+**Hvad:**
+End-to-end-pipeline til at måle servoernes elektriske forbrug pr. led,
+publicere det som ROS-topic, og logge det til CSV+PNG med valgfri
+live-viewer. Fire lag:
+
+1. **Per-servo måling** i `ServoControl` — nye attributter `voltage` og
+  `current`, plus settere `set_feedback_voltage(raw)` og
+  `set_feedback_current(raw)` der konverterer ST3215's rå register-værdier
+  (`PRESENT_VOLTAGE` reg 62 = 0.1 V/unit; `PRESENT_CURRENT` reg 69-70 =
+  6.5 mA/unit, bit 15 = fortegns-bit).
+2. **Driver-aggregation** i `DriverWaveshare._update_servo_feedback` — gemmer
+  V/A pr. servo. Nye getters `get_servo_voltages()`, `get_servo_currents()`,
+  `get_servo_powers()`.
+3. **Manager-publish** — `wattson_servo_manager_node` har nu et nyt
+  `/servo_power` (sensor_msgs/JointState) topic ved siden af
+  `/joint_states_feedback`. Mapping: `position[i]` = volt, `velocity[i]` =
+  ampere, `effort[i]` = watt for servo `name[i]`.
+4. **Commissioning-værktøj** — nyt `power_monitor_node` i `arm_commissioning`,
+  parametre: `scenario`, `duration_s`, `live`, `live_window_s`, `output_dir`.
+  Output: `<output_dir>/<dato>/<scenario>/<stamp>_power.{csv,png}`.
+  CSV-kolonner: `t_s, V_<servo>..., A_<servo>..., W_<servo>..., total_W`.
+  PNG: total-W timeseries (top), per-servo bar chart (bund, top 12 ledere).
+  Live-viewer: `TkAgg` + `FuncAnimation`, graceful headless-fallback.
+
+**Hvorfor:**
+- Kapitel 7 har brug for kvantitative tal for elektrisk forbrug pr.
+  scenarie — datablads-tal for ST3215 dækker kun max-træk under stall,
+  ikke realistisk demo-forbrug.
+- Per-led decomposition er nødvendig for at koble §6.6 (statisk
+  holdetilstand) til strømmål — vi forventer at shoulder_pitch dominerer
+  i udstrakte poser.
+- Live-viewer giver hurtig diagnose under demo (kan man se en spike når
+  armen rammer en grænse?).
+- CSV-output går direkte i `Appendices/test_data/` til rapporten.
+
+**⚠ Vigtig forbehold der SKAL med i rapporten:**
+- Målingerne dækker **kun servo-busset** (24 V til ESP32-bokse → servoer).
+- Følgende forbruges men måles **ikke**:
+  - Jetson Orin Nano (~7-15 W typisk)
+  - ZED 2i kamera (~1.9 W)
+  - ESP32-bokse selv (~0.5-1 W stk.)
+  - PSU-tab og kabel-resistens
+- Det reelle total-systemforbrug er **højere** end `total_W` i CSV'en.
+- Værdien er at vi kan **sammenligne scenarier mod hinanden** og
+  identificere de tunge led — ikke at vi har en kalibreret system-måler.
+
+Forkastede alternativer:
+- **(a) Eksternt clamp-meter på PSU-output:** ville give kalibreret
+  total-forbrug, men ingen per-led decomposition. Kan stadig laves som
+  supplement til rapporten hvis tid tillader det.
+- **(b) Subscribe direkte til ROS-topic uden manager-publish:** ville
+  duplikere serial-reads og kollidere med drivertråden — samme rationale
+  som §6.1 (centraliseret feedback-publisher).
+- **(c) Beregn watt fra position-derivat × moment-konstant:** kræver
+  præcise mekaniske parametre for hvert led, mere usikkerhed end direkte
+  V·A-måling. Forkastet.
+
+**Implementering:**
+- Filer:
+  - `pkgs_control/servo_control/servo_control/src/servo_control.py` (+36 linjer)
+  - `pkgs_control/servo_control/servo_control/src/driver_servos.py` (+39 linjer)
+  - `pkgs_control/servo_control/servo_control/wattson_servo_manager_node.py`
+    (+105 linjer; del af samme commit som §6.1 feedback-publisher)
+  - `pkgs_commissioning/arm_commissioning/arm_commissioning/power_monitor_node.py`
+    (419 linjer — nyt værktøj)
+  - `pkgs_commissioning/arm_commissioning/docs/power_monitor.md` (185 linjer
+    bruger-dokumentation med samme forbehold)
+- Commit: `2ea1b48`
+- `python3-tk` tilføjet til `package.xml` (live-viewer kræver TkAgg-backend).
+
+**Test:**
+- Smoke-test (2026-06-10): syntetisk `JointState`-publisher kørte mod
+  `power_monitor_node` med `live:=true`. Resultater: gyldig CSV med
+  korrekte kolonner, PNG genereret med begge sub-plots, live-viewer-vinduet
+  åbnede og opdaterede ved 10 Hz uden frame-drops.
+- Hardware-test: udestår — planlagt til næste lab-dag (foreslået scenarier:
+  `idle`, `teleop_neutral`, `teleop_extended`, `animation_wave`).
+
+**Til rapport:**
+- Tabel: scenarie × (idle_W, mean_W, peak_W) + top-3 mest-forbrugende led.
+- Figur: én repræsentativ time-series (helst med en synlig spike fra fx
+  en hånd-griber) + bar chart fra samme run.
+- Diskussion:
+  - Sammenhæng med §6.6: er shoulder_pitch målbart varmere/mere strøm-
+    krævende i udstrakt pose end i neutral?
+  - Eksplicit afgrænsning: hvad indgår IKKE i målingen, og hvorfor.
+  - Implikation for batteridrift / PSU-dimensionering for fremtidige
+    iterationer (hvis det er relevant for projektets scope).
+
+---
+
+### 6.9 Tkinter demo-launcher GUI (2026-06-10)
+
+**Hvad:**
+Et-vindue control panel (`launcher_gui_node` i `arm_commissioning`) der
+samler de typiske demo-services bag Start/Stop-knapper med live status,
+samlet log-rude og en "Start demo"-knap der eksekverer den kanoniske
+sekvens (DHCP → camera → adb reverse → vuer) med 1-6 sekunders pauser
+mellem trin. 8 konfigurerede services: `dhcp`, `adb_reverse`,
+`jetson_camera`, `jetson_servos`, `vuer_camera`, `vuer_ik`,
+`power_monitor`, `animation_idle1`. 3-punkts pre-flight checklist
+(ESP32-port-mapping, Jetson-DHCP-status, Quest-USB-debug).
+
+**Hvorfor:**
+- Den dokumenterede demo-procedure krævede 5-6 manuelt åbnede terminaler
+  med præcis rækkefølge og argument-syntaks. Det er fragilt under en
+  eksamens-fremvisning hvor man både skal tale og operere.
+- Et samlet panel reducerer demo-fejl-rummet (ingen tastefejl i
+  kommandoer), giver en visuel pre-flight checklist (man glemmer ikke
+  ESP32-port-mapping), og samler stdout fra alle services i én log
+  (lettere at se hvor noget fejler).
+
+Forkastede alternativer:
+- **(a) Bash-script der spawner `gnome-terminal`-vinduer:** virker, men
+  giver hverken samlet log eller fælles stop-knap. Processer overlever
+  scriptet og skal kill'es manuelt med `pgrep -f`-magi.
+- **(b) Streamlit/web-dashboard:** kræver browser-kontekst, langsommere
+  at starte, og GUI er fint til en lokal laptop — overkill med web-server.
+- **(c) ROS launch-fil med alle noder samlet:** kan ikke håndtere
+  SSH/sudo/adb gracefully (de er ikke ROS-noder), og ville stadig kræve
+  separate terminaler for at se output. Launch-modellen passer ikke til
+  bringup-orkestrering.
+
+**Implementering:**
+- Filer:
+  - `pkgs_commissioning/arm_commissioning/arm_commissioning/launcher_gui_node.py`
+    (434 linjer)
+  - `pkgs_commissioning/arm_commissioning/docs/launcher_gui.md`
+    (bruger-dokumentation)
+- Commits: `f0c9af4` (initial), `c8cde61` (checklist opdateret efter §5.1's
+  faste port-bindings — den gamle "USB-rækkefølge"-instruktion fjernet og
+  erstattet med RØD/GUL/HVID-port-mapping; samtidig fjernet ESP32 Serial
+  Forwarding-dans da firmware fra 2026-05-27 starter den automatisk).
+- Stdlib `tkinter` (kun apt-pakken `python3-tk` kræves som runtime-dep).
+- `subprocess.Popen` med `preexec_fn=os.setsid` → clean stop af proces-
+  grupper via `os.killpg(SIGINT)`, hard `SIGTERM` efter 3 s grace.
+- SSH-services bruger `ssh -tt` for at videreføre signaler til remote
+  `ros2 launch` (force-tty: så Ctrl+C går igennem).
+- DHCP via `pkexec dnsmasq …` → grafisk Polkit-prompt, ingen
+  sudo-password embedded i GUI'en.
+
+**Test:**
+- Module-import OK (alle 8 services definerede, demo-sekvens loadet).
+- Entry-point smoke-test (2026-06-10): vinduet åbner, services vises
+  grupperet i Network/Robot/Demo-sektioner, status-prikker opdateres,
+  log-rude virker. Eksplicit ikke startet under smoke-test for at undgå
+  mid-test sudo-prompt.
+- Fuld-stak hardware-test: udestår — planlagt under første rigtige
+  demo-rehearsal.
+
+**Til rapport:**
+- Mest relevant for et "demonstration & operationel ergonomi"-afsnit
+  eller appendix. Ikke en videnskabelig kontribution, men et håndværks-
+  artefakt værd at nævne hvis der er plads.
+- Diskussionspunkt: forskellen mellem "værktøjet virker for udvikleren
+  der byggede det" og "værktøjet kan demonstreres uden assistance" —
+  GUI'en er en konkret instans af det.
+- Egnet figur: skærmbillede af GUI'en med checklisten tikket og services
+  i grøn status — viser visuelt at robot-bringup er en samlet handling.
+
+---
+
 ## Skabelon til nye entries
 
 ```
