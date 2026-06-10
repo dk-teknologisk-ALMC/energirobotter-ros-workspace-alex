@@ -24,6 +24,7 @@ setup(
             'step_response_node = arm_commissioning.step_response_node:main',
             'repeatability_node = arm_commissioning.repeatability_node:main',
             'power_monitor_node = arm_commissioning.power_monitor_node:main',
+            'launcher_gui = arm_commissioning.launcher_gui_node:main',
         ],
     },
 )

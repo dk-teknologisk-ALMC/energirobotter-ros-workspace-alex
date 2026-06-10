@@ -14,6 +14,7 @@ i eksamensrapporten.
 | ✅ | `step_response_node` | Mål rise time / overshoot / settling time pr. servo | [docs/step_response.md](docs/step_response.md) |
 | ✅ | `repeatability_node` | Mål positionsspredning over N gentagne kørsler | [docs/repeatability.md](docs/repeatability.md) |
 | ✅ | `power_monitor_node` | Logg + live-vis strømforbrug pr. servo | [docs/power_monitor.md](docs/power_monitor.md) |
+| ✅ | `launcher_gui` | Tkinter control panel — start hele robotten med én knap | [docs/launcher_gui.md](docs/launcher_gui.md) |
 
 ## Fælles forudsætninger
 
