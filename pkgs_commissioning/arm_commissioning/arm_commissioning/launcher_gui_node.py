@@ -153,9 +153,13 @@ SERVICES = [
 ]
 
 CHECKLIST = [
-    "USB-kabler tilsluttet i rækkefølge: venstre arm+hoved → højre arm → hænder",
+    # ESP32-bokse er bundet til faste USB-porte via /dev/serial/by-path/,
+    # så plug-rækkefølgen er ligegyldig — men de SKAL i den rigtige port.
+    # Kameraet skal have kørt mindst én gang før bokse plugges i (per
+    # workspace-rod README).
+    "ESP32-bokse i rette porte: RØD=2.2 (left arm), GUL=2.3 (right arm+head),"
+    " HVID=2.1 (hands) — efter kameraet er kørt mindst én gang",
     "Jetson tændt OG den har fået DHCP-adresse (tjek DHCP-log efter 'DHCPACK')",
-    "ESP32 Serial Forwarding aktiveret (Wi-Fi 'ESP32_DEV', http://192.168.4.1)",
     "Quest 3 tilsluttet via USB-C med USB-debugging accepteret (kun ved vuer)",
 ]
 

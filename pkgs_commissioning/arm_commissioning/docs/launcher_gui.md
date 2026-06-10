@@ -20,10 +20,13 @@ demo eller almindeligt arbejde uden at skulle åbne 5-6 terminaler.
 
 ## Hvad det IKKE gør
 
-- Kan ikke automatisere ESP32 Serial Forwarding-dansen
-  (kræver Wi-Fi-skift + browser-klik på 192.168.4.1).
-- Kan ikke automatisere USB-plug-rækkefølgen.
+- Kan ikke automatisere fysisk tilslutning af ESP32-bokse (RØD/GUL/HVID
+  i de rigtige USB-porte på Jetson).
 - Er ikke en ROS-node — det shell'er bare ud til `ros2`/`ssh`/`pkexec`.
+
+> ESP32 Serial Forwarding starter nu automatisk ved boot (firmware fra
+> 2026-05-27), så den gamle Wi-Fi/browser-dans er ikke længere
+> nødvendig.
 
 ## Forudsætninger (engangs-opsætning)
 
@@ -47,9 +50,11 @@ shellet.)
 Vinduet åbner. Du gør så følgende manuelt **én gang**:
 
 1. Tjek af pre-flight checklist
-2. Tilslut USB-kabler i den dokumenterede rækkefølge
-3. Tænd Jetson
-4. Lav ESP32 Serial Forwarding-dans (Wi-Fi → 192.168.4.1 → Start → Stop)
+2. Tænd Jetson
+3. Start kameraet fra GUI'en (skal have kørt mindst én gang før ESP32-bokse plugges i)
+4. Sæt ESP32-bokse i de rigtige USB-porte: **RØD=2.2** (left arm),
+   **GUL=2.3** (right arm+head), **HVID=2.1** (hands). Plug-rækkefølgen
+   er ligegyldig — boksene er bundet via `/dev/serial/by-path/`.
 5. Tilslut Quest 3 hvis vuer skal bruges
 
 Derefter kan du enten:
