@@ -68,6 +68,10 @@ SERVICES = [
             " --dhcp-host=48:b0:2d:eb:e3:58,192.168.1.105,elrik-jetson"
             " --log-dhcp"
         ),
+        # dnsmasq kører som root via pkexec, så vores bruger kan ikke
+        # signalere det direkte. Stop via pkexec (prompter for password
+        # igen, eller bruger Polkit-cache hvis under timeout).
+        "stop_command": "pkexec pkill -TERM dnsmasq",
     },
     {
         "key": "adb_reverse",
@@ -225,6 +229,18 @@ class Service:
         if not self.is_running():
             return
         sig = signal.SIGTERM if hard else signal.SIGINT
+
+        # Hvis servicen kan ikke signaleres direkte (fx root-ejet via
+        # pkexec), bruges en eksplicit stop-kommando i stedet.
+        stop_cmd = self.spec.get("stop_command")
+        if stop_cmd:
+            log_fn(f"[{self.spec['key']}] stopper via stop_command: {stop_cmd}")
+            try:
+                subprocess.Popen(["bash", "-c", stop_cmd])
+            except Exception as e:
+                log_fn(f"[{self.spec['key']}] stop_command fejl: {e}")
+            return
+
         log_fn(
             f"[{self.spec['key']}] stopper "
             f"({'SIGTERM' if hard else 'SIGINT'} til pgroup {self.proc.pid})"
@@ -233,6 +249,13 @@ class Service:
             os.killpg(os.getpgid(self.proc.pid), sig)
         except ProcessLookupError:
             pass
+        except PermissionError as e:
+            # Sker hvis processen kører som root (pkexec) og vi prøver at
+            # signalere som almindelig bruger. Logges, men crasher ikke.
+            log_fn(
+                f"[{self.spec['key']}] kunne ikke signalere ({e}) — "
+                f"processen er privileged. Brug evt. 'pkexec pkill ...' manuelt."
+            )
 
     def _pump(self, log_fn):
         try:
@@ -396,13 +419,23 @@ class LauncherApp(tk.Tk):
     def stop_all(self):
         # Soft stop først (SIGINT), hardstop efter en kort grace-periode
         for svc in self.services.values():
-            svc.stop(self.log_msg, hard=False)
+            try:
+                svc.stop(self.log_msg, hard=False)
+            except Exception as e:
+                # Forhindr at en enkelt fejlende service blokerer
+                # vinduet i at lukke.
+                self.log_msg(f"[{svc.spec['key']}] stop fejl: {e}")
 
         def hard_kill_remaining():
             time.sleep(3.0)
             for svc in self.services.values():
                 if svc.is_running():
-                    svc.stop(self.log_msg, hard=True)
+                    try:
+                        svc.stop(self.log_msg, hard=True)
+                    except Exception as e:
+                        self.log_msg(
+                            f"[{svc.spec['key']}] hard stop fejl: {e}"
+                        )
 
         threading.Thread(target=hard_kill_remaining, daemon=True).start()
 
@@ -419,8 +452,12 @@ class LauncherApp(tk.Tk):
 
     def on_close(self):
         self.log_msg("Lukker — stopper alle services…")
-        self.stop_all()
-        # Giv subprocesser et øjeblik til at lukke pænt
+        try:
+            self.stop_all()
+        except Exception as e:
+            # Aldrig blokere window-close på en stop-fejl.
+            self.log_msg(f"stop_all fejl under shutdown: {e}")
+        # Giv subprocesser et øjeblik til at lukke pænt; destroy uanset.
         self.after(1500, self.destroy)
 
 

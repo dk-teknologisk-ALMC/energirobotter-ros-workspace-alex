@@ -34,6 +34,10 @@ demo eller almindeligt arbejde uden at skulle åbne 5-6 terminaler.
 # Tkinter (Ubuntu-pakke)
 sudo apt install python3-tk
 
+# ssh-askpass — grafisk password-prompt for SSH til Jetson
+# (uden den fejler Camera/Servos-services med "Permission denied")
+sudo apt install ssh-askpass-gnome
+
 # Polkit/pkexec er allerede installeret på standard Ubuntu — det bruges
 # til at få DHCP (dnsmasq) op uden at lægge sudo-password ind i GUI'en
 ```
