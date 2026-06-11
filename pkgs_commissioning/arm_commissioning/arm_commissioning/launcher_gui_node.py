@@ -27,6 +27,7 @@ import signal
 import subprocess
 import threading
 import time
+from collections import deque
 import tkinter as tk
 from tkinter import ttk, scrolledtext
 
@@ -430,17 +431,29 @@ class AnimationRunner:
                 f"stopper {self.current_csv} for at starte {csv_basename}",
             )
             self._kill()
-            # Giv den gamle proces et kort øjeblik til at slippe servoerne
-            time.sleep(0.3)
+            # Lokal SSH dies med det samme; men det remote ros2 run
+            # hører kun SIGHUP via sshd-lukning, og det er upaalideligt
+            # naar man relauncher hurtigt. Send eksplicit pkill over SSH
+            # — genbruger ControlMaster-socketen saa det er <100ms.
+            self._remote_kill(log_fn)
+            # Kort grace saa servoer slipper før ny node forbinder
+            time.sleep(0.4)
 
         # $(ros2 pkg prefix ...) bliver eksprimeret af *remote* shell
         # — lokal single-quote forhindrer lokal eksprimering, og remote
         # bash ser strengen ren og parser den selv. Det gør kommandoen
         # robust uanset hvor energinet workspace ligger på Jetson.
+        #
+        # 'exec' erstatter remote bash med selve ros2-processen, så naar
+        # SSH-kanalen lukker (SIGHUP fra sshd) rammer signalet rclpy
+        # *direkte* i stedet for at skulle propageres gennem en bash-
+        # parent. Uden 'exec' overlevede animation_player_node typisk
+        # 30+ sekunder efter Stop blev klikket — servoerne fortsatte
+        # animationen mens man troede den var stoppet.
         cmd = (
             f"ssh{SSH_OPTS} -tt {JETSON_HOST} "
             f"'{JETSON_SOURCES} && "
-            f"ros2 run animation_player animation_player_node --ros-args "
+            f"exec ros2 run animation_player animation_player_node --ros-args "
             f"-p csv_file_path:=$(ros2 pkg prefix energirobotter_bringup)"
             f"/share/energirobotter_bringup/animations/{csv_basename}.csv "
             f"-p fps:=24'"
@@ -473,15 +486,44 @@ class AnimationRunner:
 
     def stop(self, log_fn):
         if not self.is_running():
+            # Selv hvis vi tror processen er død kan en remote
+            # animation_player_node-zombie stadig kommandere servoerne.
+            # Send altid et remote pkill for at vaere sikker.
+            self._remote_kill(log_fn)
             return
         log_fn(self.LOG_KEY, f"stopper {self.current_csv}")
         self._kill()
+        self._remote_kill(log_fn)
 
     def _kill(self):
         try:
             os.killpg(os.getpgid(self.proc.pid), signal.SIGINT)
         except (ProcessLookupError, PermissionError):
             pass
+
+    def _remote_kill(self, log_fn):
+        """Send 'pkill -INT animation_player_node' over SSH til Jetson.
+        Genbruger ControlMaster-socketen saa det er ~instant. Fire-and-
+        forget; vi venter ikke paa svar."""
+        cmd = (
+            f"ssh{SSH_OPTS} {JETSON_HOST} "
+            f"'pkill -INT -f animation_player_node || true'"
+        )
+        env = os.environ.copy()
+        if ASKPASS_PATH:
+            env.setdefault("SSH_ASKPASS", ASKPASS_PATH)
+            env.setdefault("SSH_ASKPASS_REQUIRE", "force")
+            env.setdefault("DISPLAY", ":0")
+        try:
+            subprocess.Popen(
+                ["bash", "-c", cmd],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                stdin=subprocess.DEVNULL,
+                env=env,
+            )
+        except Exception as e:
+            log_fn(self.LOG_KEY, f"remote pkill fejl: {e}")
 
     def _pump(self, log_fn):
         try:
@@ -509,9 +551,22 @@ class LauncherApp(tk.Tk):
         self.services = {s["key"]: Service(s) for s in SERVICES}
         self.animation_runner = AnimationRunner()
 
+        # Log-batching: hver subprocess-output-linje gaar gennem en
+        # thread-safe deque, og vi flusher i bursts paa main-thread hver
+        # 50 ms. Uden det blev hver linje skedulet som en separat
+        # 'self.after(0, _append_log)', og en busy node kunne emittere
+        # 100+ linjer/sek. Dermed blev tkinter event-queue'en fyldt med
+        # log-callbacks, og bruger-clicks (Stop, switch animation) maatte
+        # vente bag i koeen — hvilket gav 30+ sekunders perceived lag.
+        # maxlen forhindrer ubegraenset hukommelses-vaekst hvis en proces
+        # log-spammer; gamle linjer falder af.
+        self._log_queue = deque(maxlen=5000)
+        self._log_lock = threading.Lock()
+
         self._build_ui()
         # Start status-poll-loop
         self.after(500, self._refresh_status)
+        self.after(50, self._flush_log_queue)
 
     # ------------------------- UI-konstruktion -----------------------------
 
@@ -669,11 +724,43 @@ class LauncherApp(tk.Tk):
 
     def log_msg(self, source_key, message):
         """Append en log-linje. source_key="" giver en system-besked der
-        kun havner i Alle-fanen; ellers også i den service-specifikke fane.
-        Thread-safe — schedules append på main-thread."""
-        self.after(0, self._append_log, source_key, message)
+        kun havner i Alle-fanen; ellers ogsaa i den service-specifikke fane.
+        Thread-safe — putter linjen i deque'en, main-thread flusher periodisk."""
+        with self._log_lock:
+            self._log_queue.append((source_key, message))
+
+    def _flush_log_queue(self):
+        """Kør paa main-thread hver 50 ms. Tag op til 200 linjer ud af koeen,
+        gruppér efter tab, og insert som ET stykke text pr. tab. Ét insert
+        er drastisk hurtigere end N inserts — og vigtigere: vi blokerer
+        ikke event-loop'en mens vi fylder loggen op."""
+        try:
+            with self._log_lock:
+                n = min(len(self._log_queue), 200)
+                items = [self._log_queue.popleft() for _ in range(n)]
+            if items:
+                per_tab = {}
+                all_lines = []
+                for src, msg in items:
+                    if src:
+                        per_tab.setdefault(src, []).append(msg)
+                        all_lines.append(f"[{src}] {msg}")
+                    else:
+                        all_lines.append(msg)
+                for src, lines in per_tab.items():
+                    tab = self._get_or_create_tab(src)
+                    tab.insert("end", "\n".join(lines) + "\n")
+                    tab.see("end")
+                self.log_all.insert("end", "\n".join(all_lines) + "\n")
+                self.log_all.see("end")
+        except tk.TclError:
+            # Vinduet er ved at blive destroyed; stop reschedule.
+            return
+        self.after(50, self._flush_log_queue)
 
     def _append_log(self, source_key, message):
+        # Behold for kompatibilitet (kaldes ikke laengere fra log_msg, men
+        # kan stadig bruges fra evt. main-thread-paths).
         if source_key:
             tab = self._get_or_create_tab(source_key)
             tab.insert("end", f"{message}\n")
