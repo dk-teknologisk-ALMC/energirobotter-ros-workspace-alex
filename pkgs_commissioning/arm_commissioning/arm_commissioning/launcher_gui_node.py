@@ -64,6 +64,32 @@ ASKPASS_PATH = _ensure_askpass_script()
 # ----------------------------------------------------------------------
 
 JETSON_HOST = "elrik@192.168.1.105"
+
+# OpenSSH connection multiplexing (ControlMaster).
+#
+# Hver ros2-launch og hver animation aabner sin egen 'ssh -tt'-forbindelse.
+# Uden multiplexing skal hver enkelt forbindelse autentificere — og fordi
+# vi spawner SSH gennem en non-TTY subprocess, sker det via vores
+# zenity-ASKPASS, dvs. ét password-vindue pr. service og pr. animation.
+#
+# Med ControlMaster opretter den foerste 'ssh' en master-socket. Alle
+# efterfoelgende 'ssh' med samme ControlPath sluttes via socketen og
+# springer auth helt over. ControlPersist holder masteren oppe i 10 min
+# efter sidste forbindelse, saa launcher-genstart inden for det vindue
+# heller ikke prompter.
+#
+# Permanent loesning er ssh-copy-id (public-key auth), men ControlMaster
+# virker uden aendringer paa Jetson-siden og er sikkerhedsmaessigt
+# identisk (samme auth, bare amortiseret).
+#
+# Bemaerk: ControlPath skal vaere kort (Linux har sun_path-limit paa 108
+# tegn). %r@%h:%p ekspanderes til 'elrik@192.168.1.105:22' — tjekket OK.
+SSH_CONTROL_PATH = "/tmp/launcher_gui_ssh-%r@%h:%p"
+SSH_OPTS = (
+    " -o ControlMaster=auto"
+    f" -o ControlPath={SSH_CONTROL_PATH}"
+    " -o ControlPersist=10m"
+)
 # Jetson-side sourcing.
 #
 # Den oprindelige README forventer at brugeren har sat .bashrc op til at
@@ -112,19 +138,25 @@ SERVICES = [
         "key": "dhcp",
         "label": "DHCP server (dnsmasq)",
         "section": "Network",
-        # pkexec åbner et grafisk passwordprompt så vi ikke skal embedde
-        # password i GUI'en. Bruger Polkit's standard auth-dialog.
+        # 'sudo -A' bruger vores zenity-ASKPASS til at promte for password
+        # foerste gang. Efter det cacher sudo legitimationen (default 15
+        # min, per-bruger naar tty mangler), saa stop-knappen og evt.
+        # genstart gaar uden ny prompt.
+        #
+        # VIGTIGT: vi kalder IKKE 'sudo pkill' for at stoppe. I stedet
+        # sender Service.stop SIGINT til hele subprocess-pgroup'en (vores
+        # bash + sudo + dnsmasq). sudo viderefører bevidst signaler fra
+        # det kaldende user-process til sit boern (ud fra dets manpage),
+        # saa selvom vores ikke-root proces ikke kan signalere root-
+        # dnsmasq direkte, naar SIGINT'en frem via sudo. Resultat: Stop
+        # er oejeblikkeligt og kraever ingen yderligere auth.
         "command": (
-            "pkexec dnsmasq --no-daemon --port=0"
+            "sudo -A dnsmasq --no-daemon --port=0"
             " --interface=enp0s31f6 --bind-interfaces"
             " --dhcp-range=192.168.1.100,192.168.1.200,255.255.255.0,1h"
             " --dhcp-host=48:b0:2d:eb:e3:58,192.168.1.105,elrik-jetson"
             " --log-dhcp"
         ),
-        # dnsmasq kører som root via pkexec, så vores bruger kan ikke
-        # signalere det direkte. Stop via pkexec (prompter for password
-        # igen, eller bruger Polkit-cache hvis under timeout).
-        "stop_command": "pkexec pkill -TERM dnsmasq",
     },
     {
         "key": "adb_reverse",
@@ -148,7 +180,7 @@ SERVICES = [
         "label": "Camera (Jetson)",
         "section": "Robot",
         "command": (
-            f"ssh -tt {JETSON_HOST}"
+            f"ssh{SSH_OPTS} -tt {JETSON_HOST}"
             f" '{JETSON_SOURCES} && ros2 launch energirobotter_bringup"
             f" camera.launch.py camera_model:=zed2i rotate:=270'"
         ),
@@ -158,7 +190,7 @@ SERVICES = [
         "label": "Servos (Jetson)",
         "section": "Robot",
         "command": (
-            f"ssh -tt {JETSON_HOST}"
+            f"ssh{SSH_OPTS} -tt {JETSON_HOST}"
             f" '{JETSON_SOURCES} && ros2 launch energirobotter_bringup"
             f" servos.launch.py'"
         ),
@@ -307,6 +339,8 @@ class Service:
             env.setdefault("SSH_ASKPASS", ASKPASS_PATH)
             env.setdefault("SSH_ASKPASS_REQUIRE", "force")
             env.setdefault("DISPLAY", ":0")
+            # 'sudo -A' bruger SUDO_ASKPASS — samme zenity-script.
+            env.setdefault("SUDO_ASKPASS", ASKPASS_PATH)
         try:
             self.proc = subprocess.Popen(
                 ["bash", "-c", cmd],
@@ -404,7 +438,7 @@ class AnimationRunner:
         # bash ser strengen ren og parser den selv. Det gør kommandoen
         # robust uanset hvor energinet workspace ligger på Jetson.
         cmd = (
-            f"ssh -tt {JETSON_HOST} "
+            f"ssh{SSH_OPTS} -tt {JETSON_HOST} "
             f"'{JETSON_SOURCES} && "
             f"ros2 run animation_player animation_player_node --ros-args "
             f"-p csv_file_path:=$(ros2 pkg prefix energirobotter_bringup)"
@@ -417,6 +451,7 @@ class AnimationRunner:
             env.setdefault("SSH_ASKPASS", ASKPASS_PATH)
             env.setdefault("SSH_ASKPASS_REQUIRE", "force")
             env.setdefault("DISPLAY", ":0")
+            env.setdefault("SUDO_ASKPASS", ASKPASS_PATH)
         try:
             self.proc = subprocess.Popen(
                 ["bash", "-c", cmd],
