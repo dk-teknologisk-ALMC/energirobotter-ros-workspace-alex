@@ -264,33 +264,39 @@ DEMO_SEQUENCE = [
 
 # Animationer der eksponeres i Animationer-fanen. Hver animation refererer
 # til en CSV i energirobotter_bringup/animations/. Listen er grupperet
-# efter Animation_Commands.md's kategorisering. (csv_basename, dansk_label)
+# efter Animation_Commands.md's kategorisering.
+#
+# Format: (csv_basename, dansk_label, loop)
+#   loop=True  — idle/gestures der skal blive ved indtil brugeren stopper
+#                 (vinker indtil man stopper den, idle-pose evig)
+#   loop=False — statiske poser og en-gangs sekvenser; afspilles én gang
+#                 og noden afslutter pent ved EOF
 ANIMATIONS = [
     ("Sikre / blide", [
-        ("idle1", "Idle (rolig)"),
-        ("gesture_yes", "Yes (nik)"),
-        ("gesture_no", "No (ryst)"),
-        ("gesture_shrug", "Shrug"),
-        ("gesture_wave", "Vink"),
+        ("idle1", "Idle (rolig)", True),
+        ("gesture_yes", "Yes (nik)", True),
+        ("gesture_no", "No (ryst)", True),
+        ("gesture_shrug", "Shrug", True),
+        ("gesture_wave", "Vink", True),
     ]),
     ("Statiske positurer", [
-        ("pose_peace", "Peace"),
-        ("pose_rocknroll", "Rock'n'Roll"),
-        ("pose_handshake", "Handshake"),
-        ("pose_kungfu", "Kung Fu"),
+        ("pose_peace", "Peace", False),
+        ("pose_rocknroll", "Rock'n'Roll", False),
+        ("pose_handshake", "Handshake", False),
+        ("pose_kungfu", "Kung Fu", False),
     ]),
     ("Sekvenser", [
-        ("animation_fingerguns", "Finger Guns"),
-        ("animation_headbang", "Headbang"),
-        ("mimic_alexander", "Mimic Alexander"),
-        ("mimic_optimus", "Mimic Optimus"),
+        ("animation_fingerguns", "Finger Guns", False),
+        ("animation_headbang", "Headbang", False),
+        ("mimic_alexander", "Mimic Alexander", False),
+        ("mimic_optimus", "Mimic Optimus", False),
     ]),
     ("Test / commissioning (forsigtig!)", [
-        ("test_servos", "Test servos"),
-        ("recording_arms_test", "Recording: begge arme"),
-        ("recording_right_arm_test", "Recording: højre arm"),
-        ("recording_right_underarm_test", "Recording: højre underarm"),
-        ("recording_right_wrist_test", "Recording: højre håndled"),
+        ("test_servos", "Test servos", False),
+        ("recording_arms_test", "Recording: begge arme", False),
+        ("recording_right_arm_test", "Recording: højre arm", False),
+        ("recording_right_underarm_test", "Recording: højre underarm", False),
+        ("recording_right_wrist_test", "Recording: højre håndled", False),
     ]),
 ]
 
@@ -424,7 +430,7 @@ class AnimationRunner:
     def is_running(self):
         return self.proc is not None and self.proc.poll() is None
 
-    def play(self, csv_basename, log_fn):
+    def play(self, csv_basename, log_fn, loop=False):
         if self.is_running():
             log_fn(
                 self.LOG_KEY,
@@ -450,15 +456,21 @@ class AnimationRunner:
         # parent. Uden 'exec' overlevede animation_player_node typisk
         # 30+ sekunder efter Stop blev klikket — servoerne fortsatte
         # animationen mens man troede den var stoppet.
+        #
+        # 'loop:=true/false' siger til animation_player_node om CSV'en
+        # skal afspilles én gang og afslutte ved EOF, eller wrapper
+        # uendeligt. Idle/gestures vil typisk loop=true (vinker indtil
+        # man stopper den), poser og en-gangs-sekvenser loop=false.
+        loop_arg = "true" if loop else "false"
         cmd = (
             f"ssh{SSH_OPTS} -tt {JETSON_HOST} "
             f"'{JETSON_SOURCES} && "
             f"exec ros2 run animation_player animation_player_node --ros-args "
             f"-p csv_file_path:=$(ros2 pkg prefix energirobotter_bringup)"
             f"/share/energirobotter_bringup/animations/{csv_basename}.csv "
-            f"-p fps:=24'"
+            f"-p fps:=24 -p loop:={loop_arg}'"
         )
-        log_fn(self.LOG_KEY, f"start {csv_basename}")
+        log_fn(self.LOG_KEY, f"start {csv_basename} (loop={loop_arg})")
         env = os.environ.copy()
         if ASKPASS_PATH:
             env.setdefault("SSH_ASKPASS", ASKPASS_PATH)
@@ -649,12 +661,15 @@ class LauncherApp(tk.Tk):
         for cat_name, items in ANIMATIONS:
             cat = ttk.LabelFrame(parent, text=cat_name)
             cat.pack(fill="x", padx=10, pady=4)
-            for i, (csv_key, label) in enumerate(items):
+            for i, (csv_key, label, loop) in enumerate(items):
+                # Loop-animationer faar et lille loop-glyph saa det er
+                # synligt at de blive ved indtil bruger trykker stop.
+                display = f"▶ {label}" + (" ↻" if loop else "")
                 btn = ttk.Button(
                     cat,
-                    text=f"▶ {label}",
-                    width=26,
-                    command=lambda k=csv_key: self.play_animation(k),
+                    text=display,
+                    width=28,
+                    command=lambda k=csv_key, lp=loop: self.play_animation(k, lp),
                 )
                 r, c = divmod(i, 4)
                 btn.grid(row=r, column=c, padx=4, pady=4, sticky="w")
@@ -858,8 +873,8 @@ class LauncherApp(tk.Tk):
 
     # ------------------------- animationer ---------------------------------
 
-    def play_animation(self, csv_basename):
-        self.animation_runner.play(csv_basename, self.log_msg)
+    def play_animation(self, csv_basename, loop=False):
+        self.animation_runner.play(csv_basename, self.log_msg, loop=loop)
 
     def stop_animation(self):
         self.animation_runner.stop(self.log_msg)

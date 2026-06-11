@@ -190,11 +190,11 @@ class ServoManagerNode(Node):
 
         # Update servos
         self.servo_driver_hands.update_feedback()
-        self.servo_driver_hands.command_servos(self.servo
-        self._publish_power([self.servo_driver_hands])_commands_hands)
+        self.servo_driver_hands.command_servos(self.servo_commands_hands)
 
         # Hands run on their own timer; publish their feedback separately.
         self._publish_feedback([self.servo_driver_hands])
+        self._publish_power([self.servo_driver_hands])
 
     def _publish_feedback(self, drivers):
         """Aggregate get_servo_angles() from one or more drivers and publish
@@ -216,7 +216,8 @@ class ServoManagerNode(Node):
         msg = JointState()
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.name = names
-        msg.position = list(np.deg2rad(positi
+        msg.position = list(np.deg2rad(positions_deg))
+        self.pub_joints_feedback.publish(msg)
 
     def _publish_power(self, drivers):
         """Aggregate per-servo voltage / current / power from one or more
@@ -251,8 +252,7 @@ class ServoManagerNode(Node):
         msg.position = voltages
         msg.velocity = currents
         msg.effort = powers
-        self.pub_servo_power.publish(msg)ons_deg))
-        self.pub_joints_feedback.publish(msg)
+        self.pub_servo_power.publish(msg)
 
 
 def main(args=None):

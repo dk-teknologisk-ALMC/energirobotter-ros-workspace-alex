@@ -21,8 +21,18 @@ class AnimationPlayerNode(Node):
             self.get_parameter("csv_file_path").get_parameter_value().string_value
         )
 
+        # loop=False (default) afspiller animationen én gang og lukker noden
+        # pent ved EOF. loop=True wrapper i en uendelig sløjfe (legacy
+        # opførsel — brugbart til 'idle'-animationer).
+        self.declare_parameter("loop", False)
+        self.loop = (
+            self.get_parameter("loop").get_parameter_value().bool_value
+        )
+
         # CSV file setup
-        self.csv_reader = csv_reader.CSVReader(self.csv_file_path)
+        self.csv_reader = csv_reader.CSVReader(
+            self.csv_file_path, loop=self.loop
+        )
 
         header = self.csv_reader.get_header()
         self.joints_names = header[1:]  # Skip frame info
@@ -61,7 +71,17 @@ class AnimationPlayerNode(Node):
     def callback_timer(self):
         row_data = self.csv_reader.get_next_row()
         if row_data is None:
-            return  # End of file, optional: loop or stop
+            # End of file naas kun naar loop=False. Stop timeren saa vi
+            # ikke laeser videre, log et synligt event, og bed rclpy om
+            # at lukke ned saa main()'s spin() returnerer og processen
+            # afslutter pent (exit=0). Uden shutdown ville noden bare
+            # holde sig idle med en ubrugelig timer kaldende return.
+            self.timer.cancel()
+            self.get_logger().info(
+                f"animation completed: {self.csv_file_path}"
+            )
+            rclpy.shutdown()
+            return
 
         joint_values = [float(x) for x in row_data[1:]]  # Degrees
         joint_data = [np.deg2rad(v) for v in joint_values]  # To radians
