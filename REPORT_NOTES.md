@@ -887,6 +887,48 @@ overlappende API ud over den nye `log_msg`-signatur.
   `JETSON_SOURCES` viser præcist hvad der bliver sourcet og
   reviewet som en del af repo'en.
 
+**UX-iteration 2 — Animationer-fane (commit `ad72387`).**
+- *Motivation:* Bringup-flow'et og animations-afspilning er to
+  forskellige mentale opgaver: bringup er sjældent brugt og
+  procedure-tungt; animations-afspilning er hyppigt brugt under demo
+  og kun ét knap-tryk pr. handling. Det første drev af GUI'en havde
+  én enkelt service-række til `idle1.csv` blandet ind med de øvrige
+  bringup-services — det skalerede ikke da brugeren ville prøve
+  flere animationer.
+- *Yderligere fund undervejs:* Den oprindelige
+  `animation.launch.py` accepterer formelt et `csv_file:=`-argument,
+  men launch-filen *ignorerer* det og hardkoder
+  `mimic_alexander.csv`. Vores `animation_idle1`-service brugte
+  derfor reelt mimic_alexander, ikke idle1 — en *latent* bug der
+  først blev synlig da vi ville gøre afspilning til en fane.
+- *Løsning:* GUI'en er nu en top-level `ttk.Notebook` med to faner:
+  "Bringup" og "Animationer". Animationer-fanen viser 18
+  forindstillede CSV'er (samme liste som `Animation_Commands.md`)
+  grupperet i fire kategorier (sikre/blide, statiske positurer,
+  sekvenser, test/commissioning). Hver knap er én klik som kalder
+  `ros2 run animation_player animation_player_node --ros-args -p
+  csv_file_path:=…/<name>.csv -p fps:=24` over SSH til Jetson.
+  CSV-stien resolves runtime via `$(ros2 pkg prefix
+  energirobotter_bringup)/share/…/animations/`, så den ikke afhænger
+  af workspace-layout. En `AnimationRunner`-klasse holder kun én
+  animation aktiv ad gangen — start af en ny stopper den
+  forrige automatisk, så servoerne ikke får modstridende kommandoer
+  fra to `animation_player_node`-instanser.
+- *Forkastede alternativer:*
+  - **(a) En service pr. animation:** ville fylde service-listen op
+    med 18 ekstra rækker (i forvejen ikke en service, da de er
+    fire-and-forget). Forstyrrer mental model af "service =
+    langlevende baggrundsproces".
+  - **(b) Én tekstbox + dropdown:** mindre opdageligt, kræver flere
+    klik. Knap-grid med danske labels er bedre i en demo-kontekst.
+- *Lessons learned for rapport:* Top-level fane-opdelingen er en
+  god illustration af "task-domain-split": forskellige opgaver med
+  forskellige tempo og hyppighed fortjener forskellige UI-paneler
+  selv om de deler en backend (samme `log_msg`-stream, samme
+  SSH-sourcing-recept). Det er en mikro-version af det samme
+  princip som ligger bag fx VS Code's command palette vs.
+  side-bar-views.
+
 ---
 
 ## Skabelon til nye entries
