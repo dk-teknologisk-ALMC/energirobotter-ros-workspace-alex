@@ -1080,6 +1080,172 @@ overlappende API ud over den nye `log_msg`-signatur.
   diagnosticerbare ved at rationalisere fra symptomet ("hvad
   *kunne* der bruge 30 sek?") frem for at gætte fixes.
 
+**Bug 8 — `wattson_servo_manager_node.py` syntactically broken siden commit `2ea1b48`; Jetson kørte cached install (commit `29ca1a5`).**
+- *Symptom:* Brugeren rapporterede at statiske 1-frame poser
+  (`pose_peace`, `pose_handshake`, `pose_kungfu`, `pose_rocknroll`)
+  "stopper halvvejs og fortsætter så til slut position" når de
+  afspilles via launcher-GUI'en. Diagnosen var i første omgang en
+  hypotese om CSV-looping (Bug 9), men brugeren pushede tilbage:
+  *"selv dem som er statiske … er du sikker på vi snakker om det
+  samme?"* — og det var en helt korrekt indvending. Et 1-frame CSV
+  kan IKKE producere stutter via looping (hvert "frame" er identisk).
+- *Diagnose:* Da jeg dykkede ned i `pkgs_control/servo_control/.../
+  wattson_servo_manager_node.py` for at se efter trajectory-
+  smoothing eller delta-limit-logik fandt jeg at filen var
+  **syntactically invalid Python**. To metoder var sammenfletet
+  ovenpå hinanden:
+  ```python
+  self.servo_driver_hands.command_servos(self.servo
+  self._publish_power([self.servo_driver_hands])_commands_hands)
+  ```
+  Og `_publish_power`-metodens body var embedded inde i
+  `_publish_feedback`'s slutning (`np.deg2rad(positi` truncated, og
+  `ons_deg))` "uddrev" fra slutningen af _publish_power's body).
+  `python3 -c "import ast; ast.parse(open('wattson_servo_manager_node.py').read())"`
+  rapporterede `SyntaxError: invalid syntax` på linje 193.
+  
+  Git blame viste at corruption blev indført i commit `2ea1b48`
+  ("power_monitor: per-servo voltage/current/power telemetry +
+  live viewer") — en af mine egne tidligere commits. En
+  `multi_replace_string_in_file`-operation havde matchet et
+  ikke-unikt mønster og injicerede den nye linje ind i argument-
+  listen til `command_servos(...)` i stedet for som en separat
+  efterfølgende statement. Den lille editor-fejl havde altså været
+  ubemærket i ~en uge, og *hver* `colcon build --packages-select
+  servo_control` siden den dato havde fejlet stille — colcon
+  rapporterer SyntaxError fra `setuptools install` med exit-code
+  != 0 men output blev typisk drowned i andre build-meddelelser.
+  
+  Jetson'ens `~/energinet/install/servo_control/` lå derfor
+  uændret siden før commit `2ea1b48`. Det betyder at **alle bug-
+  fixes vi har troet vi havde deployeret de sidste dage** ikke
+  faktisk var aktive på robotten — Jetson'en kørte en
+  ~uge-gammel binær.
+- *Fix (commit `29ca1a5`):* Rekonstrueret `callback_timer_hands`
+  så `command_servos(self.servo_commands_hands)` står på sin egen
+  linje, fulgt af `self._publish_feedback(...)` og
+  `self._publish_power(...)` som separate kald. Rekonstrueret
+  `_publish_feedback` til at slutte med korrekt
+  `msg.position = list(np.deg2rad(positions_deg))` +
+  `self.pub_joints_feedback.publish(msg)`. Flyttet
+  `_publish_power` ud som en egen separat metode.
+- *Hvorfor det blev fundet sent:* Lokalt test-build af `arm_commissioning`
+  fungerer fordi den pakke ikke importerer `servo_control`. Lokal
+  workflow ramte aldrig `colcon build servo_control`. Test-mappen
+  for `servo_control` bruger flake8 som test-runner, men
+  `setup.py`'s entry_point evalueres ved install-time *før* pytest
+  kører, og Jetson-builden var den eneste sti hvor problemet ville
+  manifestere sig som en byggefejl. Det er en klassisk
+  "monorepo-pakke-isolation"-fælde.
+- *Sekundærfund:* `power_monitor`-servicen i launcher_gui var i
+  praksis en no-op siden samme dato. `_publish_power(...)` blev
+  aldrig kaldt på hand-driver, og `_publish_feedback(...)` returnerede
+  uden at publishe (truncated kald). Brugeren har ikke aktivt
+  brugt power-monitoreringen, så det blev ikke fanget — dvs. den
+  manglede integrationsverifikation der ville have ringet en
+  alarm-klokke.
+- *Lessons learned for rapport:* Klassisk eksempel på
+  "edit-tools have failure modes too": `multi_replace`-operationer
+  baserer sig på regex/literal-match og kan fejle på subtile måder
+  hvis matchet ikke er præcist unikt. To beskytter:
+  (a) **build-verifikation efter hver multi-edit, ikke bare lokal
+  syntaks-check** — colcon-build på den faktiske target-platform
+  ville have eksponeret problemet samme dag,
+  (b) **Jetson skal bruge en build-pipeline der fejler højlydt
+  ved compile errors** — i øjeblikket bygger den interaktivt over
+  SSH, så fejl drukner i terminal-output. En lille commit-hook
+  eller CI-job der bygger på en standard ARM-runner ville have
+  fanget det. Begge er strukturelle læringspunkter der retfærdigvis
+  hører til i rapportens "kontinuerlig integration"-afsnit.
+- *Konsekvens for tidligere bug-fixes:* Bug 6 (password-prompts) og
+  Bug 7 (animation respons-lag) som vi har troet var verificeret
+  på Jetson, var det ikke for `servo_control`-relaterede stier.
+  Animationskommandoerne nåede frem til Jetson korrekt (det er
+  `animation_player`-pakken der faktisk byggede), men
+  servo-driveren der modtog dem var en gammel binær. Efter denne
+  fix er hele kæden first time live på robotten i ca. en uge.
+
+**Bug 9 — `csv_reader.get_next_row()` looper uendeligt; ingen "play once"-mode (commit `29ca1a5`).**
+- *Symptom — del A:* Trajectory-animationer (`gesture_wave` 90
+  frames, `mimic_alexander` 850 frames) "stutter" når de afspilles
+  via GUI'en — lige før de når deres slut-pose ser man bevægelsen
+  hoppe baglæns mod start, og så starter den forfra mod slut igen.
+  *Symptom — del B:* Animationer der intuitivt burde være "kør én
+  gang og bliv stående" (de fleste poser/sekvenser) blev aldrig
+  færdige — `animation_player_node` blev ved med at publicere
+  joint-states forever og kunne kun stoppes med Stop-knappen.
+- *Diagnose:* `pkgs_control/animation_player/.../src/csv_reader.py`
+  havde en `get_next_row` der ved `StopIteration` recursivt kaldte
+  `reset_iterator()` + `get_next_row()`. Der fandtes ingen
+  loop-flag, så afspillerens **eneste mode var uendelig looping**.
+  Dette var dokumenteret implicit som "End of file, optional: loop
+  or stop"-kommentar i `animation_player_node.callback_timer`,
+  hvor en TODO-tagende `if row_data is None: return` aldrig kunne
+  fyre fordi `get_next_row` aldrig returnerede `None`.
+  
+  For trajectory-CSV'er (gesture_wave, mimic_alexander) gav det
+  præcist det observerede stutter: sidste frame indeholder fx 60°
+  arm-position, frame 0 indeholder 0°. Når CSV'en wrapper, sender
+  animation_player_node pludselig 0°. Servo-driveren udfører den
+  store delta som en aggressiv tilbage-bevægelse, og når næste
+  loop-cyklus starter er servoen midt i den tilbagevej. Det ligner
+  fra bruger-perspektiv et "robot snapper baglæns og fortsætter".
+  
+  For 1-frame statiske poser var symptomet ikke fra looping
+  (samme frame hver iteration); det viste sig at være Bug 8.
+- *Fix:*
+  1. `csv_reader.CSVReader.__init__` tager nu en `loop`-parameter
+     (default `True` for legacy bagudkompatibilitet med eksterne
+     kaldere).
+  2. `get_next_row` returnerer `None` ved EOF når `loop=False`,
+     i stedet for at recurse.
+  3. `animation_player_node` declarerer `loop`-parameter (default
+     `False` — "play once" er den intuitive default for "kør denne
+     animation nu"). Konstrueret CSVReader med samme flag.
+  4. I `callback_timer` ved `row_data is None`: cancel timeren,
+     log `"animation completed"`, kald `rclpy.shutdown()` så
+     `main()`'s `spin()` returnerer og processen afslutter
+     pent (exit=0).
+  5. I launcher-GUI'en udvidet `ANIMATIONS`-listen med en eksplicit
+     `loop`-bool pr. animation. Bevidste valg:
+     - `idle1` + alle gestures (`gesture_yes/no/shrug/wave`) →
+       `loop=True`. Disse skal blive ved indtil bruger trykker stop
+       (idle skal være evig; en vinkende robot der efter 3 sek
+       siger "okay, jeg er færdig" er forkert affordance).
+     - Statiske poser (`pose_peace/handshake/rocknroll/kungfu`) →
+       `loop=False`. Disse er destinations, ikke loops.
+     - Sekvenser (`mimic_alexander`, `mimic_optimus`,
+       `animation_fingerguns`, `animation_headbang`) → `loop=False`.
+       En sekvens har en naturlig slutning; loop ville bryde
+       narrativet.
+     - Test/recording → `loop=False`. Diagnostik kører én gang.
+   6. Loop-animationer markeres med `↻`-glyph i knap-teksten så
+      brugeren visuelt ser hvilke der vil køre forever.
+- *Forkastede alternativer:*
+  - **(i) Hardkode "play once" som eneste mode.** Brugeren
+    indvendte eksplicit at noget *skal* loope (vinkende robot).
+    Pareto-optimal default afhænger af animationen, ikke af
+    afspilningssystemet.
+  - **(ii) En `--num-loops N`-parameter i stedet for boolean.**
+    Mere fleksibelt, men ingen af vores faktiske animationer har
+    brug for "afspil 3 gange og stop". Komplexiteten er ikke
+    berettiget.
+  - **(iii) Loop-control via en runtime ROS-service.** Ville lade
+    bruger toggle loop mens animationen kører, men den eneste
+    use-case ville være "lad mig stoppe nu, men færdiggør den
+    nuværende cyklus først" — som er en akademisk feature for et
+    demo-system. Stop-knappen er god nok.
+- *Lessons learned for rapport:* En interessant observation er at
+  Bug 8 og Bug 9 var **fundet via samme symptomrapport** — bruger
+  rapporterede "stutter mid-animation". Min første hypotese var
+  Bug 9 (looping), men brugerens skarpe pushback (*"selv dem som
+  er statiske…"*) tvang mig til at grave dybere, hvilket
+  eksponerede Bug 8 (corrupt source). Det understøtter et generelt
+  punkt om at *brugerens evne til at udfordre en for-tidlig
+  diagnose er en kritisk del af debugging-loopet*. Hvis brugeren
+  havde accepteret Bug 9 som den hele forklaring, ville Bug 8
+  forblive skjult og videregivet til næste udviklergeneration.
+
 ---
 
 ## Skabelon til nye entries
