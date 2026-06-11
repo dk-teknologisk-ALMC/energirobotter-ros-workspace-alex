@@ -64,8 +64,13 @@ ASKPASS_PATH = _ensure_askpass_script()
 # ----------------------------------------------------------------------
 
 JETSON_HOST = "elrik@192.168.1.105"
+# Vi cd'er eksplicit til ~/energinet før vi sourcer/launcher, fordi flere
+# noder på Jetson'en (fx wattson_servo_manager_node) åbner config-filer
+# via *relative* stier som "install/wattson_description/share/...". Hvis
+# SSH-sessionen lander i $HOME virker servo-launchen ikke.
 JETSON_SOURCES = (
-    "source /opt/ros/humble/setup.bash"
+    "cd ~/energinet"
+    " && source /opt/ros/humble/setup.bash"
     " && source ~/energinet/install/setup.bash"
 )
 
@@ -170,7 +175,10 @@ SERVICES = [
         "needs_ros_source": True,
         "command": (
             "ros2 run arm_commissioning power_monitor_node --ros-args"
-            " -p scenario:=demo -p duration_s:=600 -p live:=true"
+            # duration_s er deklareret som DOUBLE i power_monitor_node —
+            # send eksplicit en float-literal så ROS 2's type-check ikke
+            # kaster InvalidParameterTypeException.
+            " -p scenario:=demo -p duration_s:=600.0 -p live:=true"
         ),
     },
     {

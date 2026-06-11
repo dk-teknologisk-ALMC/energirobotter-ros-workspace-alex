@@ -808,6 +808,51 @@ første gang; iteration 2 og 3 (zenity + faner) er bundlet i `47c55ef`
 fordi de blev udviklet og testet i samme arbejdsgang og deler intet
 overlappende API ud over den nye `log_msg`-signatur.
 
+**Bug 3 — `power_monitor` fejlede ved opstart med
+`InvalidParameterTypeException`.**
+- *Symptom:* Service-fanen viste øjeblikkeligt en stack-trace:
+  `Trying to set parameter 'duration_s' to '600' of type 'INTEGER',
+  expecting type 'DOUBLE'`. Exit 1.
+- *Årsag:* Node'n deklarerer `duration_s` med default `30.0` →
+  ROS 2 låser parameter-typen til DOUBLE. Service-spec'en sendte
+  `-p duration_s:=600` (heltals-literal) → ros2 cli parsede som
+  INTEGER → type-check kastede.
+- *Løsning (samme commit):* `-p duration_s:=600.0`. Tilsvarende
+  type-bevidsthed dokumenteret som inline-kommentar i service-spec'en
+  så fremtidige justeringer husker det.
+- *Lessons learned for rapport:* ROS 2's strikte parameter-type-check
+  er en god ting — den fanger silent-coercion-bugs ved opstart i
+  stedet for ved første brug. Men det betyder at CLI-argumenter
+  skal matche node'ns deklaration eksakt, hvilket gør duck-typing-
+  bringup-scripts skrøbelige.
+
+**Bug 4 — Servo-launchen på Jetson fejlede med
+`FileNotFoundError` på relativ config-sti.**
+- *Symptom:* Service-fanen viste:
+  `FileNotFoundError: [Errno 2] No such file or directory:
+  'install/wattson_description/share/wattson_description/servo_configs/
+  servo_arm_left_params.json'` efterfulgt af
+  `process has died … exit code 1`.
+- *Årsag:* `wattson_servo_manager_node` åbner sin config via en
+  *relativ* sti der antager cwd = `~/energinet/`. Vores
+  `ssh -tt … '<cmds>'` lander i remote-bruger-`$HOME` (samme katalog
+  som `~`), så stien blev resolved til `~/install/...` — som ikke
+  findes. Det fungerer i original-workflowet fordi den dokumenterede
+  procedure starter med "`cd ~/energinet`" i terminalen.
+- *Løsning (samme commit):* `JETSON_SOURCES` udvidet med `cd
+  ~/energinet` før sourcing, så alle Jetson-services får samme
+  consistent cwd. Det gør ingen forskel for camera-launchen (der
+  bruger absolutte stier i ROS package-share), men er nødvendigt for
+  servos.
+- *Lessons learned for rapport:* Working-directory-antagelser er en
+  klassisk skjult kontrakt der bryder, så snart kaldsstedet ikke er
+  en interaktiv terminal. To muligheder her: (a) fixe node'n så
+  stien er package-share-relativ (rigtigste løsning, men kræver
+  ændring i upstream `servo_control`-pakken), eller (b) fixe
+  call-site'n så cwd er korrekt (mindre indgriben, vores valg af
+  hensyn til scope). Begge er valide — vi valgte (b) fordi opgaven
+  ikke skal sprede sig ind i upstream-pakker.
+
 ---
 
 ## Skabelon til nye entries
