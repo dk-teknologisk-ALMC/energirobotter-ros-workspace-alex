@@ -360,7 +360,13 @@ class PowerMonitorNode(Node):
             last_W = data[-1][3]
             for bar, w in zip(self._bars, last_W):
                 bar.set_height(w if not np.isnan(w) else 0.0)
-            top = max(1.0, max(abs(w) for w in last_W if not np.isnan(w)) * 1.15)
+            # Hvis ALLE samples er NaN (servo_manager har endnu ikke
+            # publiceret rigtige værdier — fx før første callback_timer
+            # tick eller hvis power-feltet er disabled) returnerer
+            # generator-udtrykket en tom sekvens og max() crasher.
+            # Filtrer og fald tilbage til en sikker default.
+            valid = [abs(w) for w in last_W if not np.isnan(w)]
+            top = max(1.0, max(valid) * 1.15) if valid else 1.0
             ax_bar.set_ylim(-top, top)
             return (self._line_total, *self._bars)
 

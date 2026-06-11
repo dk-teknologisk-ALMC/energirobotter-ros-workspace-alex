@@ -1246,6 +1246,103 @@ overlappende API ud over den nye `log_msg`-signatur.
   havde accepteret Bug 9 som den hele forklaring, ville Bug 8
   forblive skjult og videregivet til næste udviklergeneration.
 
+**Bug 10 — Power-monitoring blev påbegyndt men ikke fuldført; SyncRead-overhead på fælles bus er en strukturel tradeoff (commit pending).**
+- *Symptom:* Brugeren startede `Power monitor (live viewer)` fra
+  launcher-GUI'en. Vinduet aabnede med tomme akser; ved test efter
+  at have kørt et par animationer havde plottet stadig ingen data,
+  og bar-charten viste kun hand-servoer ved 0 W. En relateret
+  Tkinter-callback crashede med `ValueError: max() arg is an
+  empty sequence` — symptom-fix lavet (filtrering før `max()`),
+  men selve årsagen var dybere.
+- *Diagnose:* Sporet kæden bagfra:
+  1. `power_monitor_node` subscriber paa `/servo_power`. Topic'en
+     PUBLICERES korrekt af `wattson_servo_manager_node._publish_power`,
+     men payload'en er `[0.0, 0.0, ...]` for alle servoer.
+  2. `_publish_power` aggregerer `driver.get_servo_voltages()` /
+     `get_servo_currents()` / `get_servo_powers()`. Alle returnerer
+     `self.servos[name].voltage` / `.current` (eller produktet).
+  3. `ServoControl.__init__` saetter `self.voltage = 0.0`,
+     `self.current = 0.0` som initial-vaerdi. De opdateres kun
+     gennem `set_feedback_voltage()` / `set_feedback_current()`.
+  4. Disse kaldes fra `driver_servos._update_servo_feedback`,
+     der KRAEVER at `read_feedback()` returnerer en ikke-None
+     payload med `"voltage"` / `"current"`-keys.
+  5. `DriverWaveshare.read_feedback` har som FORSTE LINJE
+     `if not self.feedback_enabled: return` ([driver_waveshare.py
+     linje 105](src/energirobotter-ros-workspace-alex/pkgs_control/servo_control/servo_control/src/driver_waveshare.py#L105)).
+     Returnerer altsaa None foer der overhovedet sker en
+     bus-transaction.
+  6. `wattson_servo_manager_node` instantierer alle tre drivere
+     UDEN at saette `feedback_enabled=True`. Default er False
+     i `DriverWaveshare.__init__` (linje 25). Saa hele
+     feedback-kaeden er inaktiv.
+  
+  Resultat: voltage og current er fastsiddende paa initial-vaerdien
+  0.0. Power = V*I = 0. Plottet tegner et fladt nul. Det er ikke en
+  bug i power_monitor — det er en bug i forudsaetningen om at servo
+  feedback overhovedet var aktiv. Hardwaren (ST3215) har register 62
+  (PRESENT_VOLTAGE, 0.1 V/LSB) og register 69-70 (PRESENT_CURRENT,
+  6.5 mA/LSB med fortegns-bit) der RAPPORTERER live-vaerdier — vi
+  laeser dem bare aldrig.
+- *Hvorfor det blev introduceret saadan:* Jeg skrev power-monitor-
+  pipelinen (commit `2ea1b48`) som en samlet feature: registre,
+  feedback-objekter, ROS-publisher og live-viewer. Men jeg skrev
+  ALDRIG en integrationsverifikation — ingen `assert voltage > 0`
+  paa initial bring-up, ingen "min plot er tom hvad sker der?"-test.
+  At feature-tiltaget ogsaa korrumperede filen syntaktisk (Bug 8)
+  betyder at koden ikke engang kunne bygges paa Jetson, saa selv
+  den korrekte default-paa-False-feedback-vej blev aldrig taget i
+  brug — bug'en stod skjult bag en endnu mere fundamental bug.
+- *Hvorfor vi ikke bare aktiverer feedback:* Det er fristende, men
+  der er en haard tradeoff:
+  - `update_feedback()` for N servoer paa én bus = `SyncRead`
+    round-trip per servo = 5-10 ms per servo
+  - Med 14 servoer paa arms-bussen er en fuld feedback-cycle
+    let 70-140 ms
+  - Saerlig command-loopet kører pr. dato ved 10 Hz (100 ms cycle
+    budget). Selv det er paa kanten; testet 50 Hz tidligere paa
+    dagen og fundet KATASTROFAL stutter pga. timer-overrun.
+  - At slaa feedback til paa nuværende design ville altsaa
+    enten (a) doble cycle-tiden ned til ~5 Hz, hvilket gør
+    animationer endnu mere stop-go, eller (b) tabe servo-commands.
+- *Tre realistiske spor — valgte (A) til eksamen:*
+  - **(A) Drop feature.** Fjern `power_monitor`-servicen fra
+    launcher_GUI saa der ikke ligger en knap der starter en tom
+    plot. Dokumenter aerligt at det blev paabegyndt uden
+    integrationsverifikation. **Valgt før eksamen 15. juni.**
+  - **(B) Power paa separat slow timer (~1-2 Hz).** Behold
+    fast command-loop ved 10 Hz uden feedback; en separat
+    `feedback_timer` ved 1 Hz aktiverer midlertidigt SyncRead,
+    samler én sample, gemmer, deaktiverer. Power-plot opdateres
+    1 Hz men koster ikke motion-glathed. Refactor: ~30 linjer
+    i servo_manager + en feedback_enabled-toggle API i
+    DriverWaveshare. Realistisk efter eksamen.
+  - **(C) Cosmetic.** Behold servicen, marker plottet "0 W
+    (feedback disabled)". Vaerre end (A) fordi det looker
+    pseudo-funktionelt mens det er tomt. Forkastet.
+- *Lessons learned for rapport:* Tre paegelser:
+  1. **Test integration paa hardware foer feature claimes leveret.**
+     Power-monitoreringen var "feature-complete" pa kode-niveau:
+     publisher-topic, subscriber-node, plot-window. Men ingen E2E-
+     test paa rigtig hardware, hvor man maaler hvad servoen rent
+     faktisk traekker mens den staar i ro. Den slags 30-sekunders
+     valideringer ville have fanget at vi rapporterer 0 W.
+  2. **Tradeoff-tankegang foer arkitektur-beslutning.** Jeg
+     paabegyndte feedback-laesning paa SAMME timer som command-
+     skrivning uden at tjekke om bussen kunne baere det. En
+     5-minutters skitse over "hvor lang tid tager én SyncRead"
+     vs. "hvor lang er min cycle-tid" havde eksponeret at
+     designet ville kollidere paa 10 Hz lige saa snart feedback
+     blev slaaet til. Dén "regn-paa-bagsiden-af-en-konvolut"
+     er en intellektuelt billig ting man burde haandhave naar
+     man designer real-time IO-pipelines.
+  3. **Ærlighed om hvad der ER og IKKE ER leveret.** I rapport-
+     sammenhaeng er det vigtigere at sige "denne feature er ikke
+     fuldfoert, her er hvorfor og hvad refactor'en kraever" end
+     at lade en pseudo-funktionel feature staa og demonstrere
+     "evne". Eksaminator vurderer ingenioermaessig modenhed
+     mindst lige saa meget som feature-listen.
+
 ---
 
 ## Skabelon til nye entries

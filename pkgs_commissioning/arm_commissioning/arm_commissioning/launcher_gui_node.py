@@ -220,19 +220,13 @@ SERVICES = [
             " ik_enabled:=true rviz:=false"
         ),
     },
-    {
-        "key": "power_monitor",
-        "label": "Power monitor (live viewer)",
-        "section": "Demo",
-        "needs_ros_source": True,
-        "command": (
-            "ros2 run arm_commissioning power_monitor_node --ros-args"
-            # duration_s er deklareret som DOUBLE i power_monitor_node —
-            # send eksplicit en float-literal så ROS 2's type-check ikke
-            # kaster InvalidParameterTypeException.
-            " -p scenario:=demo -p duration_s:=600.0 -p live:=true"
-        ),
-    },
+    # Power-monitor er ikke fuldt leveret. Servo-driveren initialiseres med
+    # feedback_enabled=False og laver derfor ingen SyncRead af PRESENT_VOLTAGE
+    # / PRESENT_CURRENT — power-værdierne er konstant 0. At aktivere feedback
+    # ville lægge en SyncRead-roundtrip per cycle ovenpå commando-loopet og
+    # destabilisere bevægelses-glathed (testet 2026-06-11). Servicen er fjernet
+    # fra launcher_GUI'en saa der ikke ligger en knap der starter en tom plot.
+    # Se REPORT_NOTES Bug 10 for fuld diagnose og fremtidig refactor-skitse.
     # Bemærk: en tidligere 'animation_idle1'-service er fjernet herfra.
     # Animationer afspilles nu fra den dedikerede Animationer-fane via
     # ros2 run animation_player ... med eksplicit csv_file_path. Den
