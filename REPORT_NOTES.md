@@ -713,6 +713,101 @@ Forkastede alternativer:
 - Egnet figur: skærmbillede af GUI'en med checklisten tikket og services
   i grøn status — viser visuelt at robot-bringup er en samlet handling.
 
+#### 6.9.1 Iterationer & bug-fixes (2026-06-11)
+
+GUI'en var brugbar efter første implementering, men flere konkrete
+problemer dukkede op i smoke-test og første rigtige hardware-test.
+Hver iteration er dokumenteret nedenfor med problem → analyse → løsning,
+fordi forløbet er mere illustrativt end slutresultatet alene.
+
+**Bug 1 — Window-close-hang når DHCP kørte (commit `1964712`).**
+- *Symptom:* Hvis `dhcp` (startet via `pkexec dnsmasq …`) kørte og man
+  lukkede GUI'en, frøs Tk-vinduet og processen skulle dræbes med
+  `pkill`.
+- *Årsag:* `on_close` → `stop_all` → `Service.stop` kaldte
+  `os.killpg(getpgid(pid), SIGINT)` på dnsmasq, som kører som `root`
+  (pkexec). Almindelig bruger må ikke signalere root-processer →
+  `PermissionError` blev kastet, ikke fanget, og bobled op gennem
+  `WM_DELETE_WINDOW`-handleren. Tk's main-loop blev stående med en
+  unhandled exception og malede aldrig destroy.
+- *Løsning, to dele:*
+  1. `Service.stop` fanger nu `PermissionError` (ud over den
+     forventede `ProcessLookupError`) og logger en oplysende besked i
+     stedet for at kaste.
+  2. Service-spec'en udvidet med valgfrit `stop_command`-felt; for
+     `dhcp` er det `pkexec pkill -TERM dnsmasq` så stop foregår med
+     samme privilegerede kanal som start. `on_close`/`stop_all` er
+     desuden wrapped i try/except, og `destroy` schedulered via
+     `self.after(1500, …)` så subprocesser får 1,5 s grace.
+- *Verifikation:* lukkede GUI'en gentagne gange med dhcp running —
+  ingen hang, dnsmasq stoppes korrekt.
+- *Lessons learned for rapport:* Når en GUI orkestrerer privilegerede
+  processer, skal kontrolflowet kunne håndtere både "kan ikke se
+  processen" (allerede død) og "må ikke signalere processen"
+  (privilegium-mismatch). Privilegium-eskalering via pkexec er nem at
+  starte men kræver symmetrisk privilegeret stop.
+
+**Bug 2 — SSH-services prompted for password i en usynlig terminal
+(commit `47c55ef`).**
+- *Symptom:* Ved første `Start` på `jetson_camera` skete der
+  tilsyneladende ingenting; service-pillen blev rød efter et par
+  sekunder. Loggen viste `…: Permission denied, please try again.` i
+  loop.
+- *Årsag:* SSH til Jetson bruger password (key var ikke deployed på
+  test-tidspunktet). GUI-Popen er startet uden TTY (det er bevidst —
+  vi vil ikke have en konsol-pop-up pr. service), så SSH kunne
+  hverken læse stdin eller åbne `/dev/tty`. Den ledte derefter efter
+  en ASKPASS-helper, men der var ingen `SSH_ASKPASS`-binær på
+  systemet (`ssh-askpass-gnome` ikke installeret).
+- *Forsøgt fix der fejlede:* `sudo apt install ssh-askpass-gnome`
+  fejlede grundet en urelateret apt-konflikt mellem
+  `nvidia-dkms-535` og `nvidia-driver-535` på maskinen. Vi vurderede
+  at det var uden for opgavens scope at oprydde i Nvidia-driver-
+  stakken på en lab-maskine, så vi valgte en alternativ vej.
+- *Løsning:* GUI'en skriver ved opstart en lille askpass-shellscript
+  til `/tmp/launcher_gui_askpass.sh` (mode `0o700`) som blot kalder
+  `zenity --password --title "$1"`. Subprocesser får så
+  `SSH_ASKPASS=/tmp/launcher_gui_askpass.sh`,
+  `SSH_ASKPASS_REQUIRE=force`, `DISPLAY=:0` og `stdin=DEVNULL` →
+  SSH-klienten falder tilbage til ASKPASS i stedet for at fejle på
+  manglende TTY, og brugeren får en grafisk Zenity-prompt for sit
+  remote-password.
+- *Lessons learned for rapport:* Forskellen mellem "den korrekte
+  løsning" (deploy SSH-keys, eller installer den standardiserede
+  askpass-helper) og "den korrekte løsning vi havde tid til" (zenity-
+  shim) er værd at reflektere over i en eksamenstekst. Pragmatisme
+  er ikke det samme som teknisk gæld så længe workaround'en er
+  selvforklarende og dokumenteret. `zenity` er allerede installeret
+  med GNOME → ingen ny systempakke kræves.
+
+**UX-iteration 1 — Per-service log-faner (commit `47c55ef`).**
+- *Motivation:* I første version havde GUI'en én samlet
+  `ScrolledText`-rude. Når 4-5 services kørte samtidigt (camera +
+  adb + vuer + servos) blev den linære log uoverskuelig — output fra
+  ZED-kameraet (mange linjer/sek) drukner kortere men kritiske
+  beskeder fra fx adb eller power-monitor. Brugeren bad eksplicit om
+  separate "vinduer pr. service" fordi det "giver mere overblik over
+  problemer som opstår".
+- *Løsning:* Log-ruden er nu en `ttk.Notebook` med en altid-til-stede
+  "Alle"-fane (kronologisk samlet stream med `[key]`-prefix, så man
+  kan cross-reference timing) og per-service-faner der oprettes
+  lazily første gang en service producerer output. På service-fanen
+  vises beskeden uden prefix — fanen er kilden.
+- *API-ændring internt:* `log_msg` skiftede signatur fra
+  `log_msg(line)` til `log_msg(source_key, message)`. `source_key=""`
+  bruges til system-beskeder (kun "Alle"). En ny `Service._log()`
+  helper fjerner duplikering af `[key]`-formattering på kald-stedet.
+- *Lessons learned for rapport:* Worth noting at design-iteration
+  drevet af konkret hardware-test giver mere værdi end up-front-
+  perfektionering. Den oprindelige flade log var "fin nok"
+  isoleret, men ubrugelig under en faktisk multi-service-bringup.
+
+**Note om commit-rækkefølge:**
+Iteration 1 (close-hang) gik som `1964712` mens GUI'en blev pushet
+første gang; iteration 2 og 3 (zenity + faner) er bundlet i `47c55ef`
+fordi de blev udviklet og testet i samme arbejdsgang og deler intet
+overlappende API ud over den nye `log_msg`-signatur.
+
 ---
 
 ## Skabelon til nye entries
