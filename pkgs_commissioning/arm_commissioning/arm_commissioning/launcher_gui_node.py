@@ -200,16 +200,12 @@ SERVICES = [
             " -p scenario:=demo -p duration_s:=600.0 -p live:=true"
         ),
     },
-    {
-        "key": "animation_idle1",
-        "label": "Animation: idle1.csv",
-        "section": "Demo",
-        "needs_ros_source": True,
-        "command": (
-            "ros2 launch energirobotter_bringup animation.launch.py"
-            " csv_file:=idle1"
-        ),
-    },
+    # Bemærk: en tidligere 'animation_idle1'-service er fjernet herfra.
+    # Animationer afspilles nu fra den dedikerede Animationer-fane via
+    # ros2 run animation_player ... med eksplicit csv_file_path. Den
+    # gamle service brugte animation.launch.py med 'csv_file:=idle1',
+    # men launch-filen hardkoder mimic_alexander.csv og ignorerer
+    # argumentet, så servicen var de facto bugged.
 ]
 
 CHECKLIST = [
@@ -230,6 +226,39 @@ DEMO_SEQUENCE = [
     ("jetson_camera", 6.0),  # giv kameraet tid til at initialisere
     ("adb_reverse", 1.0),
     ("vuer_camera", 1.0),
+]
+
+
+# Animationer der eksponeres i Animationer-fanen. Hver animation refererer
+# til en CSV i energirobotter_bringup/animations/. Listen er grupperet
+# efter Animation_Commands.md's kategorisering. (csv_basename, dansk_label)
+ANIMATIONS = [
+    ("Sikre / blide", [
+        ("idle1", "Idle (rolig)"),
+        ("gesture_yes", "Yes (nik)"),
+        ("gesture_no", "No (ryst)"),
+        ("gesture_shrug", "Shrug"),
+        ("gesture_wave", "Vink"),
+    ]),
+    ("Statiske positurer", [
+        ("pose_peace", "Peace"),
+        ("pose_rocknroll", "Rock'n'Roll"),
+        ("pose_handshake", "Handshake"),
+        ("pose_kungfu", "Kung Fu"),
+    ]),
+    ("Sekvenser", [
+        ("animation_fingerguns", "Finger Guns"),
+        ("animation_headbang", "Headbang"),
+        ("mimic_alexander", "Mimic Alexander"),
+        ("mimic_optimus", "Mimic Optimus"),
+    ]),
+    ("Test / commissioning (forsigtig!)", [
+        ("test_servos", "Test servos"),
+        ("recording_arms_test", "Recording: begge arme"),
+        ("recording_right_arm_test", "Recording: højre arm"),
+        ("recording_right_underarm_test", "Recording: højre underarm"),
+        ("recording_right_wrist_test", "Recording: højre håndled"),
+    ]),
 ]
 
 # ---------------------------------------------------------------------------
@@ -341,6 +370,96 @@ class Service:
 
 
 # ---------------------------------------------------------------------------
+# Animation runner
+#
+# Animationer afspilles fire-and-forget over SSH; kun én ad gangen for at
+# undgå at flere animation_player_node-instanser kommanderer servoer
+# samtidigt. Hvis der allerede kører en animation, stoppes den først.
+# Output havner i "animation"-fanen i log-notebooken.
+# ---------------------------------------------------------------------------
+
+
+class AnimationRunner:
+    LOG_KEY = "animation"
+
+    def __init__(self):
+        self.proc = None
+        self.current_csv = None
+
+    def is_running(self):
+        return self.proc is not None and self.proc.poll() is None
+
+    def play(self, csv_basename, log_fn):
+        if self.is_running():
+            log_fn(
+                self.LOG_KEY,
+                f"stopper {self.current_csv} for at starte {csv_basename}",
+            )
+            self._kill()
+            # Giv den gamle proces et kort øjeblik til at slippe servoerne
+            time.sleep(0.3)
+
+        # $(ros2 pkg prefix ...) bliver eksprimeret af *remote* shell
+        # — lokal single-quote forhindrer lokal eksprimering, og remote
+        # bash ser strengen ren og parser den selv. Det gør kommandoen
+        # robust uanset hvor energinet workspace ligger på Jetson.
+        cmd = (
+            f"ssh -tt {JETSON_HOST} "
+            f"'{JETSON_SOURCES} && "
+            f"ros2 run animation_player animation_player_node --ros-args "
+            f"-p csv_file_path:=$(ros2 pkg prefix energirobotter_bringup)"
+            f"/share/energirobotter_bringup/animations/{csv_basename}.csv "
+            f"-p fps:=24'"
+        )
+        log_fn(self.LOG_KEY, f"start {csv_basename}")
+        env = os.environ.copy()
+        if ASKPASS_PATH:
+            env.setdefault("SSH_ASKPASS", ASKPASS_PATH)
+            env.setdefault("SSH_ASKPASS_REQUIRE", "force")
+            env.setdefault("DISPLAY", ":0")
+        try:
+            self.proc = subprocess.Popen(
+                ["bash", "-c", cmd],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                stdin=subprocess.DEVNULL,
+                preexec_fn=os.setsid,
+                text=True,
+                bufsize=1,
+                env=env,
+            )
+        except Exception as e:
+            log_fn(self.LOG_KEY, f"kunne ikke starte {csv_basename}: {e}")
+            return
+        self.current_csv = csv_basename
+        threading.Thread(
+            target=self._pump, args=(log_fn,), daemon=True
+        ).start()
+
+    def stop(self, log_fn):
+        if not self.is_running():
+            return
+        log_fn(self.LOG_KEY, f"stopper {self.current_csv}")
+        self._kill()
+
+    def _kill(self):
+        try:
+            os.killpg(os.getpgid(self.proc.pid), signal.SIGINT)
+        except (ProcessLookupError, PermissionError):
+            pass
+
+    def _pump(self, log_fn):
+        try:
+            for line in self.proc.stdout:
+                if line.strip():
+                    log_fn(self.LOG_KEY, line.rstrip())
+        except Exception as e:
+            log_fn(self.LOG_KEY, f"log-pump fejl: {e}")
+        rc = self.proc.wait()
+        log_fn(self.LOG_KEY, f"{self.current_csv} afsluttet (exit={rc})")
+
+
+# ---------------------------------------------------------------------------
 # GUI
 # ---------------------------------------------------------------------------
 
@@ -349,10 +468,11 @@ class LauncherApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Wattson Demo Launcher")
-        self.geometry("960x780")
-        self.minsize(820, 620)
+        self.geometry("960x820")
+        self.minsize(820, 640)
 
         self.services = {s["key"]: Service(s) for s in SERVICES}
+        self.animation_runner = AnimationRunner()
 
         self._build_ui()
         # Start status-poll-loop
@@ -366,9 +486,26 @@ class LauncherApp(tk.Tk):
         )
         header.pack(pady=(10, 6))
 
+        # Top-level notebook deler GUI'en op i "Bringup" (services + demo)
+        # og "Animationer" (forindstillede CSV'er). Loggen ligger udenfor
+        # notebook'en så den er synlig uanset hvilken fane man er på.
+        self.main_notebook = ttk.Notebook(self)
+        self.main_notebook.pack(fill="both", expand=True, padx=10, pady=4)
+
+        bringup = ttk.Frame(self.main_notebook)
+        self.main_notebook.add(bringup, text="Bringup")
+        self._build_bringup_tab(bringup)
+
+        animations = ttk.Frame(self.main_notebook)
+        self.main_notebook.add(animations, text="Animationer")
+        self._build_animations_tab(animations)
+
+        self._build_log()
+
+    def _build_bringup_tab(self, parent):
         # --- Pre-flight checklist ---
         chk_frame = ttk.LabelFrame(
-            self, text="Pre-flight checklist (klik når gjort)"
+            parent, text="Pre-flight checklist (klik når gjort)"
         )
         chk_frame.pack(fill="x", padx=10, pady=4)
         self.checklist_vars = []
@@ -380,12 +517,12 @@ class LauncherApp(tk.Tk):
             )
 
         # --- Services ---
-        sec_frame = ttk.LabelFrame(self, text="Services")
+        sec_frame = ttk.LabelFrame(parent, text="Services")
         sec_frame.pack(fill="x", padx=10, pady=4)
         self._build_services(sec_frame)
 
         # --- Top-level controls ---
-        ctrl = ttk.Frame(self)
+        ctrl = ttk.Frame(parent)
         ctrl.pack(fill="x", padx=10, pady=6)
 
         ttk.Button(
@@ -401,6 +538,38 @@ class LauncherApp(tk.Tk):
             side="right", padx=4
         )
 
+    def _build_animations_tab(self, parent):
+        # Top-bar med stop-knap og en advarsel om forudsætninger
+        top = ttk.Frame(parent)
+        top.pack(fill="x", padx=10, pady=(8, 4))
+        ttk.Button(
+            top, text="■ Stop animation", command=self.stop_animation,
+            width=20,
+        ).pack(side="left")
+        ttk.Label(
+            top,
+            text=(
+                "Forudsætter at servos.launch.py kører på Jetson. "
+                "Kun én animation ad gangen — ny start stopper den nuværende."
+            ),
+            foreground="gray",
+        ).pack(side="left", padx=10)
+
+        # Kategorier som LabelFrames med 4-kolonne knap-grid
+        for cat_name, items in ANIMATIONS:
+            cat = ttk.LabelFrame(parent, text=cat_name)
+            cat.pack(fill="x", padx=10, pady=4)
+            for i, (csv_key, label) in enumerate(items):
+                btn = ttk.Button(
+                    cat,
+                    text=f"▶ {label}",
+                    width=26,
+                    command=lambda k=csv_key: self.play_animation(k),
+                )
+                r, c = divmod(i, 4)
+                btn.grid(row=r, column=c, padx=4, pady=4, sticky="w")
+
+    def _build_log(self):
         # --- Log med separat fane pr. service ---
         # Hver service-output havner både på sin egen fane (uden prefix —
         # fanen er kilden) og i "Alle"-fanen med [key]-prefix så man kan
@@ -414,7 +583,7 @@ class LauncherApp(tk.Tk):
         # "Alle"-fanen er altid til stede; per-service-faner laves lazily
         # første gang en service producerer output.
         self.log_all = scrolledtext.ScrolledText(
-            self.log_notebook, height=14, font=("monospace", 9), wrap="word"
+            self.log_notebook, height=10, font=("monospace", 9), wrap="word"
         )
         self.log_notebook.add(self.log_all, text="Alle")
         self.log_tabs = {}  # key -> ScrolledText
@@ -525,6 +694,13 @@ class LauncherApp(tk.Tk):
         self.services[key].stop(self.log_msg)
 
     def stop_all(self):
+        # Stop animationer først så servoer ikke får modstridende kommandoer
+        # under shutdown.
+        try:
+            self.animation_runner.stop(self.log_msg)
+        except Exception as e:
+            self.log_msg("animation", f"stop fejl: {e}")
+
         # Soft stop først (SIGINT), hardstop efter en kort grace-periode
         for svc in self.services.values():
             try:
@@ -557,6 +733,14 @@ class LauncherApp(tk.Tk):
             )
 
         threading.Thread(target=run, daemon=True).start()
+
+    # ------------------------- animationer ---------------------------------
+
+    def play_animation(self, csv_basename):
+        self.animation_runner.play(csv_basename, self.log_msg)
+
+    def stop_animation(self):
+        self.animation_runner.stop(self.log_msg)
 
     # ------------------------- shutdown ------------------------------------
 
