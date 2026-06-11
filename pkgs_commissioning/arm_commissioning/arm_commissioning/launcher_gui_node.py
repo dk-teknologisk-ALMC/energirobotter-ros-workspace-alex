@@ -260,39 +260,56 @@ DEMO_SEQUENCE = [
 # til en CSV i energirobotter_bringup/animations/. Listen er grupperet
 # efter Animation_Commands.md's kategorisering.
 #
-# Format: (csv_basename, dansk_label, loop)
-#   loop=True  — idle/gestures der skal blive ved indtil brugeren stopper
-#                 (vinker indtil man stopper den, idle-pose evig)
-#   loop=False — statiske poser og en-gangs sekvenser; afspilles én gang
-#                 og noden afslutter pent ved EOF
+# Format: (csv_basename, dansk_label).
+#
+# Loop-flag UDLEDES fra filnavnets praefiks via _csv_should_loop() —
+# ikke per-entry hardkodet. Det betyder at klassifikationen styres af
+# CSV-forfatterens semantiske valg (filnavn) og ikke af min synsning.
+# Eneste praefiks der er evigt-loops er 'idle' (perpetuel hviletilstand);
+# alt andet (gesture/pose/animation/mimic/test/recording) afspilles én
+# gang og afslutter pent ved EOF. Hvis nogen senere doeber 'idle2.csv'
+# virker den automatisk; hvis 'gesture_wave' skal loopes, doebes filen
+# om til 'idle_wave' (semantisk rigtigt — det er ikke laengere en gestus).
 ANIMATIONS = [
     ("Sikre / blide", [
-        ("idle1", "Idle (rolig)", True),
-        ("gesture_yes", "Yes (nik)", True),
-        ("gesture_no", "No (ryst)", True),
-        ("gesture_shrug", "Shrug", True),
-        ("gesture_wave", "Vink", True),
+        ("idle1", "Idle (rolig)"),
+        ("gesture_yes", "Yes (nik)"),
+        ("gesture_no", "No (ryst)"),
+        ("gesture_shrug", "Shrug"),
+        ("gesture_wave", "Vink"),
     ]),
     ("Statiske positurer", [
-        ("pose_peace", "Peace", False),
-        ("pose_rocknroll", "Rock'n'Roll", False),
-        ("pose_handshake", "Handshake", False),
-        ("pose_kungfu", "Kung Fu", False),
+        ("pose_peace", "Peace"),
+        ("pose_rocknroll", "Rock'n'Roll"),
+        ("pose_handshake", "Handshake"),
+        ("pose_kungfu", "Kung Fu"),
     ]),
     ("Sekvenser", [
-        ("animation_fingerguns", "Finger Guns", False),
-        ("animation_headbang", "Headbang", False),
-        ("mimic_alexander", "Mimic Alexander", False),
-        ("mimic_optimus", "Mimic Optimus", False),
+        ("animation_fingerguns", "Finger Guns"),
+        ("animation_headbang", "Headbang"),
+        ("mimic_alexander", "Mimic Alexander"),
+        ("mimic_optimus", "Mimic Optimus"),
     ]),
     ("Test / commissioning (forsigtig!)", [
-        ("test_servos", "Test servos", False),
-        ("recording_arms_test", "Recording: begge arme", False),
-        ("recording_right_arm_test", "Recording: højre arm", False),
-        ("recording_right_underarm_test", "Recording: højre underarm", False),
-        ("recording_right_wrist_test", "Recording: højre håndled", False),
+        ("test_servos", "Test servos"),
+        ("recording_arms_test", "Recording: begge arme"),
+        ("recording_right_arm_test", "Recording: højre arm"),
+        ("recording_right_underarm_test", "Recording: højre underarm"),
+        ("recording_right_wrist_test", "Recording: højre håndled"),
     ]),
 ]
+
+
+def _csv_should_loop(csv_basename):
+    """Returnerer True hvis filnavnet semantisk repraesenterer en evig
+    tilstand (idle*). Alle andre filer afspilles én gang og afslutter.
+
+    Reglen styres af CSV-forfatterens praefiks-konvention dokumenteret i
+    Animation_Commands.md / repo-README. At baere klassifikationen i
+    filnavnet (og ikke i en separat config-tabel) betyder at det er
+    umuligt for de to at komme ud af synk.
+    """
+    return csv_basename.startswith("idle")
 
 # ---------------------------------------------------------------------------
 # Service-håndtering
@@ -655,15 +672,18 @@ class LauncherApp(tk.Tk):
         for cat_name, items in ANIMATIONS:
             cat = ttk.LabelFrame(parent, text=cat_name)
             cat.pack(fill="x", padx=10, pady=4)
-            for i, (csv_key, label, loop) in enumerate(items):
+            for i, (csv_key, label) in enumerate(items):
                 # Loop-animationer faar et lille loop-glyph saa det er
                 # synligt at de blive ved indtil bruger trykker stop.
+                # Klassifikationen kommer fra _csv_should_loop (praefiks),
+                # ikke fra ANIMATIONS-listen, saa de to kan ikke divergere.
+                loop = _csv_should_loop(csv_key)
                 display = f"▶ {label}" + (" ↻" if loop else "")
                 btn = ttk.Button(
                     cat,
                     text=display,
                     width=28,
-                    command=lambda k=csv_key, lp=loop: self.play_animation(k, lp),
+                    command=lambda k=csv_key: self.play_animation(k),
                 )
                 r, c = divmod(i, 4)
                 btn.grid(row=r, column=c, padx=4, pady=4, sticky="w")
@@ -867,7 +887,11 @@ class LauncherApp(tk.Tk):
 
     # ------------------------- animationer ---------------------------------
 
-    def play_animation(self, csv_basename, loop=False):
+    def play_animation(self, csv_basename):
+        # Loop-bool udledes fra CSV-praefikset (idle* = evigt loop, alt
+        # andet = play once). Reglen er centraliseret i _csv_should_loop
+        # saa knap-glyph (↻) og runtime-opfoersel kan ikke divergere.
+        loop = _csv_should_loop(csv_basename)
         self.animation_runner.play(csv_basename, self.log_msg, loop=loop)
 
     def stop_animation(self):
