@@ -81,14 +81,15 @@ JETSON_SOURCES = (
     "cd ~/energinet"
     " && source /opt/ros/humble/setup.bash"
     # zed_wrapper bor i en separat workspace pr. README'en. Source den
-    # hvis filen findes — ellers giv en eksplicit fejlmeddelelse i log'en
-    # i stedet for den kryptiske 'package zed_wrapper not found'.
-    " && if [ -f ~/zed_wrapper_ws/install/setup.bash ]; then"
-    " source ~/zed_wrapper_ws/install/setup.bash;"
-    " else echo '[fejl] ~/zed_wrapper_ws/install/setup.bash mangler"
-    " — camera.launch.py kraever zed_wrapper-pakken; "
-    "byg den separate workspace pr. README'en';"
-    " fi"
+    # hvis filen findes; ellers print en klar fejlmeddelelse i log'en og
+    # fortsaet (ikke-camera-services kan stadig starte).
+    # NB: hele SSH-kommandoen bliver wrapped i ' ' af kalder-kontekst, saa
+    # vi maa ikke bruge enkelt-anforselstegn nogen steder herinde.
+    " && { [ -f ~/zed_wrapper_ws/install/setup.bash ]"
+    " && source ~/zed_wrapper_ws/install/setup.bash"
+    " || echo \"FEJL: ~/zed_wrapper_ws/install/setup.bash mangler\""
+    " \"- camera.launch.py kraever zed_wrapper-pakken,\""
+    " \"byg det separate workspace iht README\"; }"
     " && source ~/energinet/install/setup.bash"
 )
 
