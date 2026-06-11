@@ -929,6 +929,75 @@ overlappende API ud over den nye `log_msg`-signatur.
   princip som ligger bag fx VS Code's command palette vs.
   side-bar-views.
 
+**Bug 6 — gentagne password-prompts pr. animation og ved nødstop (commit `5ac6069`).**
+- *Symptom — del A:* Hver gang en animations-knap klikkes,
+  prompter zenity for SSH-password til Jetson'en. Med 18
+  animationer i fanen er det helt urealistisk i en demo. Samme
+  problem ramte også `jetson_camera` og `jetson_servos`-services.
+- *Symptom — del B:* `pkexec`-promptet for at starte
+  `dnsmasq` returnerer igen når man trykker Stop, fordi
+  `stop_command` brugte `pkexec pkill`. Det er specielt slemt for
+  Stop-knappen, som er det tætteste vi kommer på et nødstop —
+  brugeren skal IKKE skrive password ind under et stop.
+- *Diagnose:* SSH bygger en ny TCP-forbindelse for hvert
+  `ssh host 'cmd'`-kald. Uden public-key auth eller multiplexing
+  betyder det fuld auth-runde hver gang — og fordi vi kører
+  non-TTY (gennem subprocess), ryger den auth gennem
+  `SSH_ASKPASS` → zenity. På `pkexec`-siden er problemet at
+  Polkit's authority-cache er kort, og at `pkexec` ikke har et
+  flag svarende til `sudo`'s timestamp-cache.
+- *Løsning del A — OpenSSH `ControlMaster`/`ControlPersist`.*
+  Tilføjet til alle `ssh`-invokationer:
+  ```
+  -o ControlMaster=auto
+  -o ControlPath=/tmp/launcher_gui_ssh-%r@%h:%p
+  -o ControlPersist=10m
+  ```
+  Første forbindelse autentificerer normalt og opretter en
+  Unix-domain-socket på `ControlPath`. Alle efterfølgende `ssh`
+  med samme `ControlPath` slutter sig til socketen og springer
+  hele auth-runden over. `ControlPersist=10m` holder master-
+  daemonen oppe i 10 min efter sidste forbindelse, så genstart
+  af launcher inden for vinduet heller ikke prompter.
+- *Løsning del B — `pkexec dnsmasq` → `sudo -A dnsmasq` med
+  signal-forwarding i stedet for `pkexec pkill`.* `sudo -A` bruger
+  `SUDO_ASKPASS` (vi sætter den til samme zenity-script som
+  `SSH_ASKPASS`). Vigtigere: `Service.stop` kalder nu *ikke*
+  længere `sudo pkill`. Den sender SIGINT til hele subprocess-
+  pgroup'en (vores `bash` + `sudo` + `dnsmasq`). Sudo's manpage
+  bestemmer at signaler fra det kaldende user-process
+  *videreformidles* til kommandoens børn — så selvom vi som
+  ikke-root ikke kan signalere root-dnsmasq direkte (kernel-
+  EPERM), når SIGINT'en frem via sudo. Resultat: Stop er
+  øjeblikkeligt og kræver ingen yderligere auth.
+- *Forkastede alternativer:*
+  - **(i) Sudoers-NOPASSWD-entry for dnsmasq.** Permanent
+    løsning, men kræver manuel rod-redigering af `/etc/sudoers.d/`
+    på hver maskine — ikke ideelt for et repo-styret workspace.
+  - **(ii) ssh-copy-id (public-key auth).** Også permanent og
+    sikkerhedsmæssigt foretrukket, men kræver én-gangs setup på
+    Jetson-siden. ControlMaster løser problemet uden at røre
+    Jetson, så vi har det som default — `ssh-copy-id` er nævnt i
+    koden som den "rigtige" permanente løsning.
+  - **(iii) En vedvarende sudo-shell vi pipe'r kommandoer ind i.**
+    Mere fragilt (man skal håndtere prompt-detection, escape,
+    pipe-buffer), og signal-forwarding-tricket gør det helt
+    unødvendigt.
+- *Lessons learned for rapport:* "Authentication amortization" er
+  generelt undervurderet i developer-tooling. Det er let at
+  bygge et UI hvor hver handling teknisk virker, men hvor
+  cumulative friction (samlet password-tryk) gør det praktisk
+  ubrugeligt. SSH multiplexing og sudo timestamp er begge
+  designed til præcis dén type "burst of related actions"-
+  workflow, men de er ikke aktiveret by default — UI-laget skal
+  bevidst opte ind. Specifikt for nødstop er pointen endnu
+  skarpere: et stop der kræver password er per definition ikke
+  et nødstop. Den slags affordance-bug ville aldrig være kommet
+  til syne i unit-tests; den blev fundet ved at bruge GUI'en i
+  rigtig demo-kontekst, hvilket understøtter argumentet i
+  rapportens UX-afsnit om at hardware-iteration kræver
+  *stedfortrædende brug*, ikke bare automatiseret verifikation.
+
 ---
 
 ## Skabelon til nye entries
