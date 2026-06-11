@@ -64,13 +64,31 @@ ASKPASS_PATH = _ensure_askpass_script()
 # ----------------------------------------------------------------------
 
 JETSON_HOST = "elrik@192.168.1.105"
-# Vi cd'er eksplicit til ~/energinet før vi sourcer/launcher, fordi flere
-# noder på Jetson'en (fx wattson_servo_manager_node) åbner config-filer
-# via *relative* stier som "install/wattson_description/share/...". Hvis
-# SSH-sessionen lander i $HOME virker servo-launchen ikke.
+# Jetson-side sourcing.
+#
+# Den oprindelige README forventer at brugeren har sat .bashrc op til at
+# source baade ~/energinet/install/setup.bash og ~/zed_wrapper_ws/install/
+# setup.bash automatisk (README "ZED ROS 2 Wrapper": "do the optional
+# command of sourcing the workspace in .bashrc"). I interaktiv SSH virker
+# det fint, men 'ssh -tt host "cmd"' koerer non-interaktivt og laeser
+# *ikke* .bashrc (bash's '[[ $- == *i* ]] || return'-guard kicker ind).
+# Derfor sourcer vi alle tre workspaces eksplicit her.
+#
+# Vi cd'er desuden til ~/energinet foer source, fordi flere noder paa
+# Jetson'en (fx wattson_servo_manager_node) aabner config-filer via
+# *relative* stier som "install/wattson_description/share/...".
 JETSON_SOURCES = (
     "cd ~/energinet"
     " && source /opt/ros/humble/setup.bash"
+    # zed_wrapper bor i en separat workspace pr. README'en. Source den
+    # hvis filen findes — ellers giv en eksplicit fejlmeddelelse i log'en
+    # i stedet for den kryptiske 'package zed_wrapper not found'.
+    " && if [ -f ~/zed_wrapper_ws/install/setup.bash ]; then"
+    " source ~/zed_wrapper_ws/install/setup.bash;"
+    " else echo '[fejl] ~/zed_wrapper_ws/install/setup.bash mangler"
+    " — camera.launch.py kraever zed_wrapper-pakken; "
+    "byg den separate workspace pr. README'en';"
+    " fi"
     " && source ~/energinet/install/setup.bash"
 )
 

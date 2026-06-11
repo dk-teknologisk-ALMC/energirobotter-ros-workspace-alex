@@ -853,6 +853,40 @@ overlappende API ud over den nye `log_msg`-signatur.
   hensyn til scope). Begge er valide — vi valgte (b) fordi opgaven
   ikke skal sprede sig ind i upstream-pakker.
 
+**Bug 5 — `camera.launch.py` på Jetson fejlede med
+`package 'zed_wrapper' not found`.**
+- *Symptom:* Service-fanen viste øjeblikkeligt:
+  `Caught exception in launch … "package 'zed_wrapper' not found,
+  searching: ['/home/elrik/energinet/install/...', '/opt/ros/humble']"`.
+- *Årsag:* Den oprindelige README dokumenterer at `zed-ros2-wrapper`
+  bygges i en *separat* workspace (`~/zed_wrapper_ws/`) og at brugeren
+  skal tilføje en `source ~/zed_wrapper_ws/install/setup.bash` til sin
+  `.bashrc` (README sektion "ZED ROS 2 Wrapper": *"do the optional
+  command of sourcing the workspace in `.bashrc`"*). Den interaktive
+  procedure i docs er `ssh elrik@…; cd energinet; shumble; sw; ros2
+  launch …` — som virker fordi den ydre SSH-session er interaktiv og
+  derfor sourcer `.bashrc` (incl. zed_wrapper_ws). Vores GUI bruger
+  derimod `ssh -tt host "kommando"` som kører non-interaktivt; bash's
+  standard-guard `[[ $- == *i* ]] || return` i `.bashrc` triggers, og
+  zed_wrapper_ws bliver aldrig sourcet.
+- *Løsning:* `JETSON_SOURCES` udvidet til at source
+  `~/zed_wrapper_ws/install/setup.bash` *eksplicit* (med en `[ -f … ]`-
+  guard så det giver en klar fejlmeddelelse hvis Jetson'ens wrapper-
+  workspace har en anden sti, i stedet for den kryptiske
+  `package not found`).
+- *Refleksion (relevant for rapport):* Den oprindelige doc er en
+  *interaktiv* recept; min første implementering oversatte den
+  bogstaveligt til kommandoer, men oversatte ikke konteksten
+  (interaktivt vs. non-interaktivt shell). Det er et generelt mønster
+  ved at automatisere en manuel procedure: man skal eksplicit
+  re-implementere alle de implicitte præmisser (her: hvad `.bashrc`
+  bidrager med). I praksis betyder det at automatiserings-laget skal
+  enten (a) replikere `.bashrc`-side-effects eksplicit, eller (b)
+  indvinde sig dem ved at køre i interaktiv mode (`bash -ic …`).
+  Vi valgte (a) fordi det er mere transparent — koden i
+  `JETSON_SOURCES` viser præcist hvad der bliver sourcet og
+  reviewet som en del af repo'en.
+
 ---
 
 ## Skabelon til nye entries
