@@ -998,6 +998,88 @@ overlappende API ud over den nye `log_msg`-signatur.
   rapportens UX-afsnit om at hardware-iteration kræver
   *stedfortrædende brug*, ikke bare automatiseret verifikation.
 
+**Bug 7 — 30-60 sekunders respons-lag på animations-knapper (commit `88a66e3`).**
+- *Symptom:* Klik på "Start animation B" mens animation A kører
+  → robotten gjorde ingenting i op mod et minut, og bevægede sig
+  herefter mærkeligt (som om to animationer var aktive
+  samtidig). Klik på "Stop animation" gav samme oplevelse —
+  servoerne kørte videre 30+ sekunder før de standsede.
+- *Diagnose — tre selvstændige årsager:*
+  1. **Remote `ros2 run` overlevede lokal SSH-kill.**
+     `AnimationRunner._kill()` sendte SIGINT til den *lokale*
+     SSH-clients pgroup. Lokal ssh døde med det samme, men
+     remote `animation_player_node` på Jetson'en hørte aldrig
+     signalet: når sshd registrerer at SSH-kanalen er lukket,
+     sendes SIGHUP til den remote bash-shell, og bash sender
+     videre til sine børn — men `rclpy` registrerer kun en
+     `SIGINT`-handler, så SIGHUP blev ignoreret. Animationen
+     kørte dermed til CSV'ens slutning (op til 60 sek), og hvis
+     brugeren klikkede en ny animation imens, kom der to
+     `animation_player_node`-instanser som hver publicerede
+     `/cmd_position` til samme servoer. Servo-managernoden tog
+     bare den seneste besked → wild oscillation.
+  2. **Tkinter event-loop blev kvalt af log-spam.** Hver
+     output-linje fra remote subprocess blev skedulet som sin
+     egen `self.after(0, _append_log)`. `animation_player_node`
+     + `ros2`-launch-noise emitterer nemt 50-100 linjer/sek. Hver
+     `_append_log` lavede `tab.insert("end", line)` +
+     `tab.see("end")` på *to* `ScrolledText`-widgets (fanen +
+     "Alle"-fanen) — hver insert udløser scrollbar-recompute og
+     re-render. Bruger-clicks havner som tk-events i samme
+     event-queue og blev FIFO-processeret *bag* alle de pending
+     log-callbacks, hvilket gav perceived UI-lag på ti-sekund-
+     skalaen.
+  3. **`pkill`-fallback fandtes slet ikke.** Hvis (1) eller (2)
+     fejlede var der ingen recovery — animationen var bare i
+     gang, og hverken Stop eller relauncher hjalp.
+- *Løsning:* Tre samtidige rettelser i `launcher_gui_node.py`
+  (commit `88a66e3`):
+  - Remote command bruger nu `… && exec ros2 run …` så remote
+    bash *erstattes* af `ros2`-processen. Når SSH-kanalen
+    lukker rammer SIGHUP `rclpy` direkte (Python's default
+    SIGHUP-handler er `terminate`), og `animation_player_node`
+    dør på milisekund-skalaen.
+  - `stop()` og `play()` (ved switch) sender desuden et
+    fire-and-forget `pkill -INT -f animation_player_node` over
+    SSH. Det genbruger den eksisterende `ControlMaster`-socket
+    så det er <100 ms, og det fungerer som belt-and-suspenders
+    hvis SIGHUP-propageringen alligevel skulle svigte.
+  - Log-pipelinen bruger nu en thread-safe `deque(maxlen=5000)`
+    + `self.after(50, _flush_log_queue)` periodic flush. Op til
+    200 linjer pr. flush, grupperes pr. tab og indsættes som ÉN
+    string via `"\n".join(lines)`. Tk-event-loopet er nu ledig
+    >95 % af tiden uanset hvor meget remote-processen logger,
+    og clicks reagerer øjeblikkeligt.
+- *Hvorfor det aldrig blev fanget tidligere:* I unit-test- og
+  desktop-kontekst kører subprocesser lokalt og signaler
+  propagerer "som forventet". Bug'en kræver nøjagtigt vores
+  topologi: `local-shell → ssh-client → sshd-på-remote → bash
+  → ros2-python`. Hver led i kæden har sine egne signal-regler,
+  og det er kun den *fulde* kæde der eksponerer at SIGINT-på-
+  lokal-ssh ikke når frem til remote rclpy.
+- *Forkastede alternativer:*
+  - **(i) Brug `ros2 lifecycle`** til at managere
+    animation_player som en lifecycle-node. Korrekt langsigtet,
+    men kræver refaktorering af noden, og lifecycle-services
+    har deres egne ~100 ms-overhead pr. transition.
+  - **(ii) Drop `-tt` (ingen pty).** Uden pty propagerer SIGHUP
+    bedre. Men `-tt` er nødvendig for at få interaktive
+    Python-noder til at skrive til stdout uden line-buffering,
+    og uden det vises log'en kun ved exit.
+  - **(iii) Lokal proces-pool i stedet for SSH pr. animation.**
+    Ville kræve at vi vedligeholder en remote-side daemon der
+    accepterer kommandoer — meget mere infrastruktur end
+    `pkill`-trick'et tilfører.
+- *Lessons learned for rapport:* Klassisk system-arkitektur-
+  bug: enkeltkomponenter er korrekte, men *integrationen*
+  fejler fordi to abstraktioner (signaler, line-buffering)
+  kolliderer. UI-thread-prioritering er en anden fælde der
+  især hitter "skriv-én-linje-pr-event"-implementeringer; den
+  korrekte default i en log-tung GUI er altid: buffer +
+  periodic flush + group inserts. Begge problemer var
+  diagnosticerbare ved at rationalisere fra symptomet ("hvad
+  *kunne* der bruge 30 sek?") frem for at gætte fixes.
+
 ---
 
 ## Skabelon til nye entries
