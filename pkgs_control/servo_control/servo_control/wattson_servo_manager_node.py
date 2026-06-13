@@ -159,16 +159,26 @@ class ServoManagerNode(Node):
         self.servo_driver_arms_right.update_feedback()
         self.servo_driver_arms_right.command_servos(self.servo_commands_arms)
 
-        # Publish actual angles from all arm drivers as feedback. Hands are
-        # published from their own (slower) callback below, so we only merge
-        # arm drivers here. Angles come back in degrees from the driver and
-        # are converted to radians to match the convention on /joint_states.
-        self._publish_feedback(
-            [self.servo_driver_arms_left, self.servo_driver_arms_right]
-        )
-        self._publish_power(
-            [self.servo_driver_arms_left, self.servo_driver_arms_right]
-        )
+        # NOTE 2026-06-13 (Bug 12, regressionsfix før eksamensaflevering):
+        # _publish_feedback + _publish_power tilføjede 4 SyncRead-kald pr.
+        # driver pr. 10 Hz cyklus (angles + voltages + currents + powers).
+        # Paa den delte 921600-baud halv-duplex servo-bus tager hver
+        # SyncRead 5-10 ms pr. servo, saa de ekstra reads konkurrerer
+        # direkte med command_servos om bus-cyklusserne. Resultatet var
+        # chunky animations-afspilning og forsinket kommando-respons --
+        # samme klasse fejl som 50 Hz-eksperimentet (Bug 11).
+        #
+        # Vi deaktiverer disse publishes for at gendanne den oprindelige
+        # 10 Hz command-throughput. /joint_states_feedback og /servo_power
+        # er dermed ikke aktive paa control-loopet. En post-eksamens-
+        # loesning ville flytte read-baseret feedback til en separat slow
+        # timer (~1 Hz) paa en anden traad.
+        # self._publish_feedback(
+        #     [self.servo_driver_arms_left, self.servo_driver_arms_right]
+        # )
+        # self._publish_power(
+        #     [self.servo_driver_arms_left, self.servo_driver_arms_right]
+        # )
 
         # # DEBUG
         # temperatures = self.servo_driver_arms.get_servo_temperatures()
@@ -192,9 +202,9 @@ class ServoManagerNode(Node):
         self.servo_driver_hands.update_feedback()
         self.servo_driver_hands.command_servos(self.servo_commands_hands)
 
-        # Hands run on their own timer; publish their feedback separately.
-        self._publish_feedback([self.servo_driver_hands])
-        self._publish_power([self.servo_driver_hands])
+        # Se NOTE 2026-06-13 i callback_timer_arms -- samme regressionsfix.
+        # self._publish_feedback([self.servo_driver_hands])
+        # self._publish_power([self.servo_driver_hands])
 
     def _publish_feedback(self, drivers):
         """Aggregate get_servo_angles() from one or more drivers and publish
