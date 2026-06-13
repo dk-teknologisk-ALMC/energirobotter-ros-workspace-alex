@@ -265,11 +265,11 @@ DEMO_SEQUENCE = [
 # Loop-flag UDLEDES fra filnavnets praefiks via _csv_should_loop() —
 # ikke per-entry hardkodet. Det betyder at klassifikationen styres af
 # CSV-forfatterens semantiske valg (filnavn) og ikke af min synsning.
-# Eneste praefiks der er evigt-loops er 'idle' (perpetuel hviletilstand);
-# alt andet (gesture/pose/animation/mimic/test/recording) afspilles én
-# gang og afslutter pent ved EOF. Hvis nogen senere doeber 'idle2.csv'
-# virker den automatisk; hvis 'gesture_wave' skal loopes, doebes filen
-# om til 'idle_wave' (semantisk rigtigt — det er ikke laengere en gestus).
+# Reglen matcher GUI-gruppen "Sekvenser": kun 'animation_*' og 'mimic_*'
+# loopes (dvs. filer der semantisk er en gentagende sekvens). Alt andet
+# (idle/gesture/pose/test/recording) afspilles én gang og afslutter pent
+# ved EOF — disse er enten statiske end-positurer eller engangsbevaegelser
+# hvor en utilsigtet repeat ville virke unaturlig.
 ANIMATIONS = [
     ("Sikre / blide", [
         ("idle1", "Idle (rolig)"),
@@ -301,15 +301,16 @@ ANIMATIONS = [
 
 
 def _csv_should_loop(csv_basename):
-    """Returnerer True hvis filnavnet semantisk repraesenterer en evig
-    tilstand (idle*). Alle andre filer afspilles én gang og afslutter.
+    """Returnerer True hvis filnavnet semantisk repraesenterer en
+    gentagende sekvens (GUI-gruppen "Sekvenser": animation_* / mimic_*).
+    Alle andre filer afspilles én gang og afslutter.
 
     Reglen styres af CSV-forfatterens praefiks-konvention dokumenteret i
     Animation_Commands.md / repo-README. At baere klassifikationen i
     filnavnet (og ikke i en separat config-tabel) betyder at det er
     umuligt for de to at komme ud af synk.
     """
-    return csv_basename.startswith("idle")
+    return csv_basename.startswith("animation_") or csv_basename.startswith("mimic_")
 
 # ---------------------------------------------------------------------------
 # Service-håndtering
@@ -470,8 +471,8 @@ class AnimationRunner:
         #
         # 'loop:=true/false' siger til animation_player_node om CSV'en
         # skal afspilles én gang og afslutte ved EOF, eller wrapper
-        # uendeligt. Idle/gestures vil typisk loop=true (vinker indtil
-        # man stopper den), poser og en-gangs-sekvenser loop=false.
+        # uendeligt. Sekvenser (animation_* / mimic_*) afspilles loop=true
+        # indtil man stopper dem; idle/gestus/poser/test loop=false.
         loop_arg = "true" if loop else "false"
         cmd = (
             f"ssh{SSH_OPTS} -tt {JETSON_HOST} "
@@ -888,9 +889,10 @@ class LauncherApp(tk.Tk):
     # ------------------------- animationer ---------------------------------
 
     def play_animation(self, csv_basename):
-        # Loop-bool udledes fra CSV-praefikset (idle* = evigt loop, alt
-        # andet = play once). Reglen er centraliseret i _csv_should_loop
-        # saa knap-glyph (↻) og runtime-opfoersel kan ikke divergere.
+        # Loop-bool udledes fra CSV-praefikset (animation_* / mimic_* =
+        # evigt loop, alt andet = play once). Reglen er centraliseret i
+        # _csv_should_loop saa knap-glyph (↻) og runtime-opfoersel
+        # kan ikke divergere.
         loop = _csv_should_loop(csv_basename)
         self.animation_runner.play(csv_basename, self.log_msg, loop=loop)
 
