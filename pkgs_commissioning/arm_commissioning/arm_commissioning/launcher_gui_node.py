@@ -220,6 +220,26 @@ SERVICES = [
             " ik_enabled:=true rviz:=false"
         ),
     },
+    # Manuel slider-GUI til commissioning og enkelt-led-test. Aabner et Qt-
+    # vindue (joint_state_publisher_gui) + RViz med URDF'en. Sliderne
+    # publicerer paa /joint_states og driver dermed servoerne via Jetson-
+    # siden naar 'Servos (Jetson)' ogsaa koerer.
+    #
+    # ADVARSEL: slider_control er en /joint_states-publisher. Hvis en
+    # animation ogsaa koerer samtidigt (animation_player_node) konkurrerer
+    # de to om samme topic og resultatet er udefineret. Stop animationer
+    # foer du bruger sliderne, og omvendt. Reglen er dokumenteret i
+    # repo-README ("No other /joint_states publisher is active").
+    {
+        "key": "slider_control",
+        "label": "Manuel slider-kontrol (lokal GUI)",
+        "section": "Demo",
+        "needs_ros_source": True,
+        "command": (
+            "ros2 launch energirobotter_bringup slider_control.launch.py"
+            " description_package:=wattson_description"
+        ),
+    },
     # Power-monitor er ikke fuldt leveret. Servo-driveren initialiseres med
     # feedback_enabled=False og laver derfor ingen SyncRead af PRESENT_VOLTAGE
     # / PRESENT_CURRENT — power-værdierne er konstant 0. At aktivere feedback
