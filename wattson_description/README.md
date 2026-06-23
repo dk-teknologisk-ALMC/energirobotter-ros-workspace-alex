@@ -1,6 +1,7 @@
 # Wattson Description
 
-Robot URFD description of Wattson.
+ROS 2 URDF description of the Wattson humanoid robot, plus the servo-config
+JSON files consumed by `servo_manager_node`.
 
 ## Generate URDF
 
@@ -38,10 +39,10 @@ Here's a quick rundown:
   Select all links and use the *Define Joints* function. Set the joint type to `Revolute`.  
    - Create appropriate limits for all joints.
 
-1. **Name joints**  
+7. **Name joints**  
    Name each joint to match the corresponding servo joint names from the servo configuration file.
 
-2. **Export the model**  
+8. **Export the model**  
    Set the export path to `//`. In the export settings, enable:  
    - `Export Textures`  
    - `URDF`  
@@ -52,12 +53,16 @@ Here's a quick rundown:
    - Use **relative file paths**  
    Finally, click **Export Model**.
 
-3. **Finalise URDF**  
-   - This package has a `fetch_phobos_urdf.py` script in the `utils/` folder, to fetch the URDF generated from Phobos and change the needed lines. 
+9. **Finalise URDF**  
+   - This package has a `fetch_phobos_urdf.py` script in the `utils/` folder, to fetch the URDF generated from Phobos and change the needed lines.
    Change the paths in the `source_file` and `destination_file` variables, then run the script.
    -  Manually copy the mesh files from the export folder to the `meshes/stl/` folder in the description package.
 
-   > Should the hand orientations look weird when run with teleoperation, it is because of a transform from the VR controllers to the robot hands. Tune `self.hand2gripper_left` and `self.hand2gripper_right` in the `TrackingTransformer` class, found in `pkgs_teleoperation/teleoperation/teleoperation/src/tracking_transformer.py`.
+   If the hand orientations look wrong when running teleoperation, it is
+   because of a transform from the VR controllers to the robot hands.
+   Tune `self.hand2gripper_left` and `self.hand2gripper_right` in the
+   `TrackingTransformer` class
+   (`pkgs_teleoperation/teleoperation/teleoperation/src/tracking_transformer.py`).
 
 
 
@@ -72,7 +77,7 @@ rosdep install --from-paths src -y --ignore-src
 
 And run with:
 ```
-ros2 launch urdf_launch display.launch.py urdf_package:=wattson_description urdf_package_path:=urdf/wattson.urdf rviz_config:=src/energirobotter-ros-workspace/wattson_description/rviz/wattson_display.rviz
+ros2 launch urdf_launch display.launch.py urdf_package:=wattson_description urdf_package_path:=urdf/wattson.urdf rviz_config:=src/energirobotter-ros-workspace-alex/wattson_description/rviz/wattson_display.rviz
 ```
 
 ## Servo Configuration
@@ -106,11 +111,22 @@ The `servo_manager_node` loads `.json` files that describes all parameters for e
 These servos are used in the arms.
 They are controlled using the `sms_sts` class in the `SCServo_Python` module.
 
-Waveshare ST3215 servos PWM is represented by a 12-bit number, so in base 10 it is `0 - 4095`. Tests showed that the actual range accepted by the driver was `0 - 4094`.
+Waveshare ST3215 servos use 12-bit PWM, so values are in the range `0–4095`.
+Tests showed the driver actually accepts `0–4094`.
 
-When sending a direct command to a Waveshare servo in code, one can set `SCS_MOVING_SPEED` and `SCS_MOVING_ACC`. In the contorl code in this repo, both are set to a constant value (typically max), as the speed and acceleration are controlled through sending specific positions. But for reference and tests, the maximum value for `SCS_MOVING_SPEED` seems to be `4000` (unknown unit) and for `SCS_MOVING_ACC` it is `255` (will crash the program if it goes beyond). Setting `SCS_MOVING_SPEED` to `0` will set it to the maximum value.
+When sending a direct command to a Waveshare servo in code, you can set
+`SCS_MOVING_SPEED` and `SCS_MOVING_ACC`. In this repo, both are set to a
+constant value (typically max), because speed and acceleration are
+controlled by sending intermediate target positions instead. For reference
+and tests, the maximum `SCS_MOVING_SPEED` is `4000` (unit unspecified) and
+the maximum `SCS_MOVING_ACC` is `255` (going beyond crashes the program).
+Setting `SCS_MOVING_SPEED` to `0` selects the maximum.
 
-Waveshare servos can rotate from `0°` to `360°` and have a configurable **middle-point**, corresponding to `180°`. This middle-point acts as a reference around which the servo moves. Choosing the correct middle-point is especially important when the servo is **geared**, and its range of motion is reduced. The middle-point of a servo is configured through the web-app hosted by the servo driver.
+Waveshare servos can rotate from `0°` to `360°` and have a configurable
+**middle-point** at `180°`. This middle-point acts as a reference around
+which the servo moves. Choosing the right middle-point matters when the
+servo is **geared** and its effective range is reduced. The middle-point
+is set through the web app hosted by the servo driver.
 
 ---
 
@@ -172,22 +188,28 @@ Run the test node on the same subnet to send a one-time command:
 ros2 run servo_control command_test_node --ros-args -p topic_name:=/joint_states -p joint_name:=joint_left_wrist_pitch -p angle:=20
 ```
 
-> When a servo’s direction is flipped (i.e., `dir = -1`), take extra care when setting the `angle_software_min` and `angle_software_max` attributes. The effective angle range may be reversed compared to non-flipped servos — what is `angle_software_min` on a standard servo might correspond to `angle_software_max` on a flipped one, and vice versa.  `angle_software_min` is always less than `angle_software_max`.
+> When a servo’s direction is flipped (i.e. `dir = -1`), take extra care when setting `angle_software_min` and `angle_software_max`. The effective angle range may be reversed compared to non-flipped servos — what is `angle_software_min` on a standard servo may correspond to `angle_software_max` on a flipped one, and vice versa. `angle_software_min` is always less than `angle_software_max`.
 
 ### Waveshare SC09 Servo Notes
 
 These servos are used in the hands.
 They are controlled using the `scscl` class in the `SCServo_Python` module.
 
-These servos have a middle-point just like the ST3115 servos, but it is not configurable. Make sure they are installed whith this in mind. 
+These servos have a middle-point just like the ST3215 servos, but it is not
+configurable. Install them with this in mind.
 
-The hand servos are scaled to a `0 - 90` degree range. Meaning sending an angle command of `0` will result in `angle_software_min`, and `90` will be `angle_software_max`. For tuning it can be nice to turn this off, do this by launching `servos.launch.py` with the `finger_mapping_enabled` parameter set to false:
+The hand servos are scaled to a `0–90` degree range: sending an angle
+command of `0` results in `angle_software_min`, and `90` in
+`angle_software_max`. For tuning it can be useful to turn this off by
+launching `servos.launch.py` with `finger_mapping_enabled:=false`:
 
 ```
 ros2 launch energirobotter_bringup servos.launch.py finger_mapping_enabled:=false
 ```
 
-The hand servos operate on a seperate joint state topic that the rest of the robot (as they don't use IK), remember to run the `command_test_node` with the correct topic name:
+The hand servos operate on a separate joint-state topic from the rest of the
+robot (they don't use IK). Run `command_test_node` with the correct topic
+name:
 ```
 ros2 run servo_control command_test_node --ros-args -p topic_name:=/joint_states_hands -p joint_name:=hand_left_index -p angle:=20
 ```

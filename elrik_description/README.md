@@ -1,6 +1,6 @@
 # Elrik Description
 
-Robot URFD description of Elrik.
+ROS 2 URDF description of the Elrik humanoid robot.
 
 ## Generate URDF
 
@@ -21,7 +21,7 @@ rosdep install --from-paths src -y --ignore-src
 
 And run with:
 ```
-ros2 launch urdf_launch display.launch.py urdf_package:=elrik_description urdf_package_path:=urdf/elrik.urdf rviz_config:=src/energirobotter-ros-workspace/elrik_description/rviz/elrik_display.rviz
+ros2 launch urdf_launch display.launch.py urdf_package:=elrik_description urdf_package_path:=urdf/elrik.urdf rviz_config:=src/energirobotter-ros-workspace-alex/elrik_description/rviz/elrik_display.rviz
 ```
 
 

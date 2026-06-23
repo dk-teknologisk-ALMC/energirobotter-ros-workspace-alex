@@ -1,20 +1,28 @@
 # repeatability_node
 
-Måler en servos **positions-spredning** ved at sende den N gange mellem
-to poser. Karakteriserer den samlede effekt af backlash, mekanisk slør
-og servo-controllerens positions-noise. Output er rapport-klar CSV + PNG.
+> **Status: Work in progress.** This tool is not finished. The motion
+> sequence, logging, and plotting work end-to-end, but the metrics and
+> feedback path have not been validated against a known reference.
+> Results should be treated as indicative only.
 
-> **Rapport-kapitel**: 6.3 Funktionstest / repeterbarhed
+Measures the positional spread of a single servo by cycling it `N`
+times between two poses. Captures the combined effect of backlash,
+mechanical play, and the servo controller's positional noise. Output is
+CSV and PNG.
 
-## Forudsætninger
+## Prerequisites
 
-Se [pakke-README](../README.md). Derudover:
+See the [package README](../README.md). In addition:
 
-- Servoen skal have `feedback_enabled: true`.
-- Pose A og pose B skal være **mekanisk sikre** — armen vil køre frem og
-  tilbage `cycles` × 2 gange.
+- The servo must have `feedback_enabled: true` in its JSON config.
+- Pose A and pose B must be mechanically safe — the joint will move
+  back and forth `cycles` × 2 times.
 
-## Kør
+## Run
+
+The example below measures repeatability on the left shoulder pitch
+joint between 0° and 20°. Replace `joint_name` with the joint to
+characterise, and adjust the poses and cycle count as needed.
 
 ```bash
 ros2 run arm_commissioning repeatability_node --ros-args \
@@ -25,66 +33,82 @@ ros2 run arm_commissioning repeatability_node --ros-args \
     -p hold_s:=1.5
 ```
 
-## Parametre
+See [calibration_tool.md](calibration_tool.md#available-joints) for the
+full list of joint names per config file.
 
-| Parameter | Default | Beskrivelse |
-|-----------|---------|-------------|
-| `joint_name` | (kræves) | Joint-navn fra `/joint_states` |
-| `pose_a_deg` | 0.0 | Pose A (logisk vinkel, delta fra default) |
-| `pose_b_deg` | 20.0 | Pose B |
-| `cycles` | 10 | Antal frem-og-tilbage-cyklusser |
-| `hold_s` | 1.5 | Hold-tid pr. pose (skal være > settling time) |
-| `publish_rate` | 50.0 | Hz hvor kommandoen genudsendes |
-| `output_dir` | `~/humanoid_ws/test_results` | Rod-mappe |
+## Parameters
 
-> **Tip**: Sæt `hold_s` mindst lig med `settling_time_s` målt af
-> `step_response_node` for samme servo + samme step-størrelse. Ellers
-> får du for-tidlige målinger.
+**`joint_name`** (required)
+Joint name from `/joint_states`.
+
+**`pose_a_deg`** (default: `0.0`)
+Pose A in logical angle, delta from `default_position`.
+
+**`pose_b_deg`** (default: `20.0`)
+Pose B.
+
+**`cycles`** (default: `10`)
+Number of back-and-forth cycles.
+
+**`hold_s`** (default: `1.5`)
+Hold time per pose. Must exceed the servo's settling time.
+
+**`publish_rate`** (default: `50.0`)
+Frequency in Hz at which the command is re-published.
+
+**`output_dir`** (default: `~/humanoid_ws/test_results`)
+Root output directory.
 
 ## Output
 
-`<output_dir>/<YYYY-MM-DD>/<joint>/<stamp>_repeat.csv` med slut-position
-pr. cyklus pr. pose.
+`<output_dir>/<YYYY-MM-DD>/<joint>/<stamp>_repeat.csv` with the final
+position per cycle per pose.
 
-`<...>_repeat.png` med:
-- Scatter-plot af målinger pr. pose
-- Std + min/max vist som horisontale linjer
-- Indlejret tekstboks med samlede statistikker
+`<...>_repeat.png` containing:
 
-## Beregnede metrics
+- Scatter plot of measurements per pose
+- Standard deviation and min/max shown as horizontal lines
+- Inset text box with the aggregate statistics
 
-| Metric | Beskrivelse |
-|--------|-------------|
-| `n_cycles` | Antal kørte cyklusser |
-| `pose_a_mean_deg` / `pose_b_mean_deg` | Faktisk gennemsnits-position |
-| `pose_a_std_deg` / `pose_b_std_deg` | Standardafvigelse (spredning) |
-| `pose_a_max_dev_deg` / `pose_b_max_dev_deg` | Maks. afvigelse fra gennemsnit |
+## Computed metrics
 
-## Tolkning til rapport
+**`n_cycles`**
+Number of completed cycles.
 
-- **Std < 0.1°**: superb repeterbarhed, ST3215 er ved sin grænse
-- **Std 0.1–0.5°**: typisk for et 3D-printet led med moderat backlash
-- **Std > 1°**: noget galt mekanisk — fx løs gearing, slap kobling
-- **Stor forskel mellem pose A og pose B**: tyngdekraft eller fjeder
-  trækker konsekvent mod den ene side (positions-bias)
+**`pose_a_mean_deg` / `pose_b_mean_deg`**
+Actual mean position per pose.
 
-## Forslag til rapport-test
+**`pose_a_std_deg` / `pose_b_std_deg`**
+Standard deviation per pose.
 
-Kør pose-pair der dækker servoens **arbejdsområde**, så I dokumenterer
-repeterbarhed over hele bevægelsesintervallet:
+**`pose_a_max_dev_deg` / `pose_b_max_dev_deg`**
+Maximum deviation from the mean per pose.
+
+## Interpretation
+
+- **Std < 0.1°**: at the limit of the ST3215.
+- **Std 0.1–0.5°**: typical for a 3D-printed joint with moderate backlash.
+- **Std > 1°**: mechanical issue, e.g. loose gearing or slipping coupling.
+- **Large mean difference between pose A and pose B**: a constant load
+  (gravity, spring) pulls the joint consistently towards one side.
+
+## Suggested test batch
+
+Run pose pairs covering the joint's working range to document
+repeatability across the full motion interval.
 
 ```bash
-# Lille bevægelse
+# Small motion
 ros2 run arm_commissioning repeatability_node --ros-args \
     -p joint_name:=joint_left_shoulder_pitch \
     -p pose_a_deg:=0 -p pose_b_deg:=5 -p cycles:=10
 
-# Mellem
+# Medium
 ros2 run arm_commissioning repeatability_node --ros-args \
     -p joint_name:=joint_left_shoulder_pitch \
     -p pose_a_deg:=0 -p pose_b_deg:=20 -p cycles:=10
 
-# Stor
+# Large
 ros2 run arm_commissioning repeatability_node --ros-args \
     -p joint_name:=joint_left_shoulder_pitch \
     -p pose_a_deg:=-30 -p pose_b_deg:=30 -p cycles:=10

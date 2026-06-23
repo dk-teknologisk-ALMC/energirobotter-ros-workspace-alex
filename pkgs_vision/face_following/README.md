@@ -1,4 +1,4 @@
 # Face Following
 
-Given a bounding box of a detected face, this package will create movement commands for servos in a pan-tilt configuration, to move the camera to look at the face. 
-
+Given the bounding box of a detected face, this package produces servo
+commands for a pan-tilt configuration so the camera tracks the face.

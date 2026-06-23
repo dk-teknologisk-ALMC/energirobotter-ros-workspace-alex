@@ -1,19 +1,20 @@
 # calibration_tool_node
 
-Interaktivt keyboard-værktøj. Du jogger én servo ad gangen, læser den
-fysiske vinkel af på robotten (eller med vinkelmåler), og låser
-`angle_software_min`, `angle_software_max` og `default_position`. Værdierne
-skrives tilbage til den angivne JSON-config med backup
+Interactive keyboard tool for setting `angle_software_min`,
+`angle_software_max`, and `default_position` on a single servo. Values are
+written back to the servo's JSON config; the previous file is preserved as
 `.bak.<timestamp>`.
 
-> **Rapport-kapitel**: 6.1 Kalibrering
+## Prerequisites
 
-## Forudsætninger
+See the [package README](../README.md). No other publisher may be active
+on `/joint_states`.
 
-Se [pakke-README](../README.md). Vigtigst: ingen andre publishere på
-`/joint_states`.
+## Run
 
-## Kør
+The example below calibrates the left shoulder pitch joint. Replace
+`joint_name` with the joint being calibrated, and `config_file` with the
+matching JSON config (left arm, right arm, head, or hand).
 
 ```bash
 ros2 run arm_commissioning calibration_tool_node --ros-args \
@@ -21,67 +22,101 @@ ros2 run arm_commissioning calibration_tool_node --ros-args \
   -p joint_name:=joint_left_shoulder_pitch
 ```
 
-Brug `ros2 run` (ikke `ros2 launch`) — værktøjet skal have en ægte TTY på
-stdin for at kunne læse tastetryk.
+The tool must be started with `ros2 run`, not `ros2 launch`. A real TTY
+on stdin is required for keyboard input.
 
-## Tastatur
+### Available joints
 
-| Tast | Handling |
-|------|----------|
-| `a` / `d` | step −1° / +1° (fysisk) |
-| `A` / `D` | step −5° / +5° |
-| `z` / `c` | step ±0.1° (finjustering) |
-| `h` | hjem (original `default_position`) |
-| SPACE | hold (genudsend nuværende) |
-| `[` | marker nuværende position som `angle_software_min` |
-| `]` | marker nuværende som `angle_software_max` |
-| `0` | marker nuværende som `default_position` |
-| `p` | print tilstand |
-| `s` | GEM til JSON (laver `.bak.<timestamp>`) |
-| `x` / `q` | afslut |
-| `?` | vis hjælp |
+**`servo_arm_left_params.json`**
+`joint_left_shoulder_pitch`, `joint_left_shoulder_roll`,
+`joint_left_arm_yaw`, `joint_left_elbow_pitch`, `joint_left_forearm_yaw`,
+`joint_left_wrist_pitch`, `joint_left_wrist_roll`
 
-## Sikkerhed
+**`servo_arm_right_params.json`**
+`joint_right_shoulder_pitch`, `joint_right_shoulder_roll`,
+`joint_right_arm_yaw`, `joint_right_elbow_pitch`,
+`joint_right_forearm_yaw`, `joint_right_wrist_pitch`,
+`joint_right_wrist_roll`
 
-- Tool clipper aldrig udenfor `[angle_min, angle_max]` (hardware-grænser
-  fra JSON), uanset hvor langt du jogger.
-- **Start altid med `h`** for at gå til en kendt position før du jogger
-  mod et nyt endepunkt.
-- Hvis servoen ikke flytter sig som forventet (knirker, brummer): tryk
-  `h` straks eller Ctrl-C.
+**`servo_hand_left_params.json`**
+`hand_left_pinky`, `hand_left_ring`, `hand_left_middle`,
+`hand_left_index`, `hand_left_thumb`
 
-## Anbefalet arbejdsgang pr. servo
+**`servo_hand_right_params.json`**
+`hand_right_pinky`, `hand_right_ring`, `hand_right_middle`,
+`hand_right_index`, `hand_right_thumb`
 
-1. `h` — gå til original default
-2. Jog forsigtigt nedad (`a`/`A`) mod den ene fysiske endeposition
-3. Når armen rører endestop / kabel strammes / mekanisk modstand mærkes:
-   bak 1–2° (`d`/`d`)
-4. Tryk `[` — det er din nye `angle_software_min`
-5. `h` igen
-6. Jog opad (`d`/`D`) mod den anden endeposition, samme procedure → `]`
-7. Find midten / komfortabel hvileposition → `0`
-8. `p` for at se alle 3 værdier
-9. `s` for at gemme
-10. Notér i målejournal: servo-ID, nye værdier, dato, observatør, evt.
-    fysisk forklaring
+**`servo_head_params.json`**
+`joint_head_yaw`, `joint_head_pitch`
 
-## Efter `s` — genbyg
+## Keys
 
-JSON er opdateret i `src/`. Du SKAL genbygge for at få det med i
-`install/`:
+| Key       | Action                                                     |
+|-----------|------------------------------------------------------------|
+| `a` / `d` | Step −1° / +1°                                             |
+| `A` / `D` | Step −5° / +5°                                             |
+| `z` / `c` | Step ±0.1° (fine adjustment)                               |
+| `h`       | Home (return to the original `default_position`)           |
+| SPACE     | Hold (re-publish the current position)                     |
+| `[`       | Mark the current position as `angle_software_min`          |
+| `]`       | Mark the current position as `angle_software_max`          |
+| `0`       | Mark the current position as `default_position`            |
+| `p`       | Print current state                                        |
+| `s`       | Save to JSON (creates `.bak.<timestamp>`)                  |
+| `x` / `q` | Exit                                                       |
+| `?`       | Show help                                                  |
+
+## Safety
+
+- The tool never commands the servo outside `[angle_min, angle_max]`
+  (hardware limits from the JSON), regardless of input.
+- Always start with `h` to reach a known position before jogging towards
+  a new limit.
+- If the servo behaves unexpectedly (audible strain, jitter), press `h`
+  or Ctrl-C immediately.
+
+## Recommended procedure (per servo)
+
+1. Press `h` to return to the original default position.
+2. Jog towards one mechanical limit using `a` / `A`.
+3. When mechanical resistance is reached, back off 1–2° with `d`.
+4. Press `[` to mark the new `angle_software_min`.
+5. Press `h`.
+6. Jog towards the opposite limit with `d` / `D` and mark with `]`.
+7. Move to the desired resting position and press `0`.
+8. Press `p` to review the new values.
+9. Press `s` to save.
+10. Record in the calibration log: servo ID, new values, date, observer.
+
+## Rebuild after save
+
+The JSON file in `src/` is updated immediately. The rebuild must happen
+on the machine that runs `servos.launch.py` (Jetson), because that
+node loads the JSON from its own `install/` tree.
+
+If calibration was performed on the laptop, copy the updated JSON to the
+Jetson first:
 
 ```bash
+scp src/energirobotter-ros-workspace-alex/wattson_description/servo_configs/<file>.json \
+    elrik@192.168.1.105:humanoid_ws/src/energirobotter-ros-workspace-alex/wattson_description/servo_configs/
+```
+
+Then rebuild on the Jetson:
+
+```bash
+ssh elrik@192.168.1.105
 cd ~/humanoid_ws
 colcon build --packages-select energirobotter_bringup wattson_description elrik_description
 source install/setup.bash
 ```
 
-…og genstart `servos.launch.py` for at indlæse de nye værdier.
+Restart `servos.launch.py` on the Jetson to load the new values.
 
-## Kendt begrænsning
+## Limitations
 
-Værktøjet har ingen live-feedback fra servoen — du må læse den fysiske
-vinkel manuelt. Hvis du jogger ud over de eksisterende
-`angle_software_min/max`, vil `wattson_servo_manager` clippe kommandoen
-til den gamle grænse. For at finde **bredere** grænser end de gamle, må
-du midlertidigt udvide dem i JSON først → byg → relaunch → kalibrér.
+The tool does not read live feedback from the servo; the physical angle
+must be observed manually. Commands beyond the existing
+`angle_software_min` / `angle_software_max` are clipped by
+`wattson_servo_manager`. To extend the software limits, widen them in
+the JSON first, rebuild, restart `servos.launch.py`, then calibrate.

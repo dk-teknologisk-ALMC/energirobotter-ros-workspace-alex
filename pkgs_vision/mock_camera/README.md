@@ -1,3 +1,3 @@
 # Mock Camera
 
-Periodically publish an image to camera topic, for testing purposes.
+Periodically publishes a still image on the camera topic for testing.

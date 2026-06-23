@@ -1,22 +1,28 @@
 # step_response_node
 
-Karakteriserer én ST3215-servos respons på et kommanderet step. Måler de
-klassiske kontrol-teoretiske størrelser (rise time, overshoot, settling
-time, steady-state error) og skriver dem som **CSV + PNG** der kan stå
-alene som rapport-figurer.
+> **Status: Work in progress.** This tool is not finished. The data
+> capture and plotting work end-to-end, but the metrics, tolerances,
+> and feedback path have not been validated against a known reference.
+> Results should be treated as indicative only.
 
-> **Rapport-kapitel**: 6.2 PID-tuning / servo-karakterisering
+Characterises the step response of a single ST3215 servo. Measures the
+standard control-theory metrics (rise time, overshoot, settling time,
+steady-state error) and writes them as CSV and PNG.
 
-## Forudsætninger
+## Prerequisites
 
-Se [pakke-README](../README.md). Derudover:
+See the [package README](../README.md). In addition:
 
-- Servoen skal have `feedback_enabled: true` i sin JSON-config — ellers
-  bliver feedback ikke læst og noden får nul samples.
-- Det er en god idé at have servoen **lukket inde i en pose hvor den
-  trygt kan flytte sig `step_size_deg`** uden at ramme noget.
+- The servo must have `feedback_enabled: true` in its JSON config.
+  Without feedback the node receives no samples.
+- The servo must be free to move `step_size_deg` from its current
+  position without hitting anything.
 
-## Kør
+## Run
+
+The example below records a 10° step on the left shoulder pitch joint.
+Replace `joint_name` with the joint to characterise, and adjust
+`step_size_deg` and `duration_s` as needed.
 
 ```bash
 ros2 run arm_commissioning step_response_node --ros-args \
@@ -25,59 +31,83 @@ ros2 run arm_commissioning step_response_node --ros-args \
     -p duration_s:=3.0
 ```
 
-## Parametre
+See [calibration_tool.md](calibration_tool.md#available-joints) for the
+full list of joint names per config file.
 
-| Parameter | Default | Beskrivelse |
-|-----------|---------|-------------|
-| `joint_name` | (kræves) | Joint-navn fra `/joint_states` |
-| `step_size_deg` | 10.0 | Step-størrelse (logisk vinkel, dvs. delta fra `default_position`) |
-| `baseline_s` | 0.5 | Hold-tid på 0° før step udsendes |
-| `duration_s` | 3.0 | Samlet kørselstid |
-| `publish_rate` | 50.0 | Hz hvor kommandoen genudsendes |
-| `settling_tol_pct` | 10.0 | Tolerance for settling time (% af step) |
-| `output_dir` | `~/humanoid_ws/test_results` | Rod-mappe |
+## Parameters
 
-> **Tip**: ST3215 har en intern PID med deadband ~0.3-0.5°, så
-> `settling_tol_pct=2` (klassisk lærebog) er for stram for små steps.
-> Default 10% giver realistiske resultater.
+**`joint_name`** (required)
+Joint name from `/joint_states`.
+
+**`step_size_deg`** (default: `10.0`)
+Step size in logical angle, i.e. delta from `default_position`.
+
+**`baseline_s`** (default: `0.5`)
+Hold time at 0° before the step is issued.
+
+**`duration_s`** (default: `3.0`)
+Total run time.
+
+**`publish_rate`** (default: `50.0`)
+Frequency in Hz at which the command is re-published.
+
+**`settling_tol_pct`** (default: `10.0`)
+Tolerance for settling time, as a percentage of the step amplitude.
+
+**`output_dir`** (default: `~/humanoid_ws/test_results`)
+Root output directory.
 
 ## Output
 
-`<output_dir>/<YYYY-MM-DD>/<joint>/<stamp>_step.csv` med kolonner:
+`<output_dir>/<YYYY-MM-DD>/<joint>/<stamp>_step.csv` with columns:
 
 ```
 t_s, cmd_deg, actual_deg
 ```
 
-`<...>_step.png` med:
-- Kommanderet vs. faktisk vinkel (normaliseret til delta-fra-baseline)
-- Step-tidspunkt markeret
-- Indlejret tekstboks med beregnede metrics
+`<...>_step.png` containing:
 
-## Beregnede metrics
+- Commanded vs. actual angle (normalised to delta from baseline)
+- Step instant marked
+- Inset text box with the computed metrics
 
-| Metric | Definition | Bruges til |
-|--------|------------|------------|
-| `rise_time_s` | Tid fra 10% til 90% af step-amplituden | Hvor "skarp" responsen er |
-| `overshoot_pct` | (peak − target) / step × 100 | Om PID'en er for aggressiv |
-| `settling_time_s` | Tid før \|fejl\| ≤ tolerance og forbliver der | Hvor lang tid før systemet er "i mål" |
-| `steady_state_error_deg` | Slutfejl efter indsving | Statisk fejl (P-gain for lav?) |
-| `baseline_phys_deg` | Faktisk start-vinkel før step | Kontekst |
-| `target_delta_deg` | Kommanderet step | Kontekst |
+## Computed metrics
 
-## Tolkning til rapport
+**`rise_time_s`**
+Time from 10 % to 90 % of the step amplitude. Indicates how sharp the
+response is.
 
-- **Lille rise time + intet overshoot + lille slutfejl** = god tuning
-- **Stort overshoot + lang settling** = for høj P, for lav D
-- **Stor slutfejl uden overshoot** = for lav P (men ST3215's interne PID
-  kan ikke ændres herfra — så det er en hardware-grænse)
-- **Manglende samples** = `feedback_enabled` er false eller
-  servo_manager publicerer ikke `/joint_states_feedback`
+**`overshoot_pct`**
+`(peak − target) / step × 100`. Indicates whether the PID is too
+aggressive.
 
-## Foreslået test-batch til rapport
+**`settling_time_s`**
+Time before `|error|` stays within the tolerance band. Indicates how
+long until the system is on target.
 
-Kør 3 steps pr. servo (lille / mellem / stor) for at vise at responsen
-skalerer fornuftigt:
+**`steady_state_error_deg`**
+Final error after settling. Indicates static error (P gain too low).
+
+**`baseline_phys_deg`**
+Actual starting angle before the step. Context.
+
+**`target_delta_deg`**
+Commanded step. Context.
+
+## Interpretation
+
+- **Short rise time, no overshoot, small steady-state error**: good tuning.
+- **Large overshoot and long settling**: P gain too high, D gain too low.
+- **Large steady-state error without overshoot**: P gain too low. The
+  ST3215 internal PID is not user-configurable, so this is a hardware
+  limit.
+- **No samples recorded**: `feedback_enabled` is false, or
+  `wattson_servo_manager` is not publishing `/joint_states_feedback`.
+
+## Suggested test batch
+
+Run three steps per servo (small / medium / large) to verify that the
+response scales sensibly:
 
 ```bash
 for STEP in 5 10 20; do

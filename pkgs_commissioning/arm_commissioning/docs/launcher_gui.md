@@ -1,108 +1,82 @@
 # launcher_gui
 
-Tkinter-baseret én-vindue control panel for at starte robotten til
-demo eller almindeligt arbejde uden at skulle åbne 5-6 terminaler.
+Tkinter control panel that starts and stops the robot's services from a
+single window.
 
-> **Formål**: én klik = robot kører. Tænkt til eksamensfremvisning og
-> daglig brug på laptoppen.
-
-## Hvad det gør
-
-- **Pre-flight checklist** for de skridt der ikke kan automatiseres
-  (USB-rækkefølge, ESP32 Serial Forwarding, Quest USB-debugging).
-- **Per-service Start/Stop** med live-statusprik (kører / stoppet /
-  fejl).
-- **Samlet log-rude** der viser stdout/stderr fra alle services — ingen
-  jonglering med terminaler.
-- **"Start demo"-knap** der kører en sekvens (DHCP → Camera → adb →
-  Vuer) med små pauser så Jetson når at boote.
-- **"Stop alle"-knap** med graciøs SIGINT og hard SIGTERM efter 3 sek.
-
-## Hvad det IKKE gør
-
-- Kan ikke automatisere fysisk tilslutning af ESP32-bokse (RØD/GUL/HVID
-  i de rigtige USB-porte på Jetson).
-- Er ikke en ROS-node — det shell'er bare ud til `ros2`/`ssh`/`pkexec`.
-
-> ESP32 Serial Forwarding starter nu automatisk ved boot (firmware fra
-> 2026-05-27), så den gamle Wi-Fi/browser-dans er ikke længere
-> nødvendig.
-
-## Forudsætninger (engangs-opsætning)
+## Dependencies
 
 ```bash
-# Tkinter (Ubuntu-pakke)
-sudo apt install python3-tk
-
-# ssh-askpass — grafisk password-prompt for SSH til Jetson
-# (uden den fejler Camera/Servos-services med "Permission denied")
-sudo apt install ssh-askpass-gnome
-
-# Polkit/pkexec er allerede installeret på standard Ubuntu — det bruges
-# til at få DHCP (dnsmasq) op uden at lægge sudo-password ind i GUI'en
+sudo apt install python3-tk ssh-askpass-gnome
 ```
 
-## Kør
+`pkexec` (polkit) ships with standard Ubuntu and is used to start the
+DHCP server without storing a sudo password in the application.
+
+## Launch
 
 ```bash
 ros2 run arm_commissioning launcher_gui
 ```
 
-(Husk `source install/setup.bash` først hvis det ikke er gjort i
-shellet.)
+## Operation
 
-Vinduet åbner. Du gør så følgende manuelt **én gang**:
+1. Complete the pre-flight checklist shown at the top of the window.
+2. Power on the Jetson.
+3. Start the camera service.
+4. Connect the ESP32 boxes to the Jetson USB ports:
+   - **Red** → port 2.2 (left arm)
+   - **Yellow** → port 2.3 (right arm + head)
+   - **White** → port 2.1 (hands)
 
-1. Tjek af pre-flight checklist
-2. Tænd Jetson
-3. Start kameraet fra GUI'en (skal have kørt mindst én gang før ESP32-bokse plugges i)
-4. Sæt ESP32-bokse i de rigtige USB-porte: **RØD=2.2** (left arm),
-   **GUL=2.3** (right arm+head), **HVID=2.1** (hands). Plug-rækkefølgen
-   er ligegyldig — boksene er bundet via `/dev/serial/by-path/`.
-5. Tilslut Quest 3 hvis vuer skal bruges
+   Order of insertion is irrelevant; ports are bound via
+   `/dev/serial/by-path/`.
+5. Connect the Quest 3 if teleoperation will be used.
 
-Derefter kan du enten:
-
-- Klikke **Start demo** og se det hele booter automatisk i sekvens, eller
-- Klikke **Start** på de individuelle services du har brug for.
+Use **Start demo** to launch the full sequence
+(DHCP → Camera → adb reverse → Vuer), or use the per-service **Start**
+buttons.
 
 ## Services
 
-| Sektion | Service | Hvad det gør |
-|---------|---------|--------------|
-| Network | DHCP server | `pkexec dnsmasq …` (åbner grafisk password-prompt) |
-| Network | adb reverse | Forwarder Quest's `localhost:8012` til laptop |
-| Robot | Camera (Jetson) | SSH til Jetson, kører `camera.launch.py` |
-| Robot | Servos (Jetson) | SSH til Jetson, kører `servos.launch.py` |
-| Demo | Vuer teleop — kun kamera | Vuer med `ik_enabled:=false` |
-| Demo | Vuer teleop — kamera + IK | Vuer med `ik_enabled:=true` (kræver servoer) |
-| Demo | Power monitor | `power_monitor_node` med live-viewer |
-| Demo | Animation: idle1.csv | Afspil `idle1` animation |
+| Section | Service                       | Action                                          |
+|---------|-------------------------------|-------------------------------------------------|
+| Network | DHCP server                   | `pkexec dnsmasq …`                              |
+| Network | adb reverse                   | Forwards Quest's `localhost:8012` to laptop     |
+| Robot   | Camera (Jetson)               | SSH to Jetson, runs `camera.launch.py`          |
+| Robot   | Servos (Jetson)               | SSH to Jetson, runs `servos.launch.py`          |
+| Demo    | Vuer teleop — camera only     | Vuer with `ik_enabled:=false`                   |
+| Demo    | Vuer teleop — camera + IK     | Vuer with `ik_enabled:=true`                    |
+| Demo    | Power monitor                 | `power_monitor_node` with live viewer           |
+| Demo    | Animation: idle1.csv          | Plays `idle1` animation                         |
 
-## Live-status
+## Status indicators
 
-Status-prikken til venstre for hver service har tre tilstande:
+A coloured dot to the left of each service shows its state:
 
-- **● grøn** — proces kører
-- **● grå** — stoppet (eller stoppet rent af brugeren)
-- **● rød** — proces afsluttede med en uventet fejlkode
+- **Green** — running
+- **Grey** — stopped
+- **Red** — process exited with a non-zero status
 
-## Stop og oprydning
+## Shutdown
 
-- **Stop**-knappen sender SIGINT (~`Ctrl-C`) til hele proces-gruppen
-- **Stop alle** sender SIGINT til alt, og efter 3 sek. SIGTERM hvis
-  noget hænger
-- **Vinduet lukket (X)** kalder Stop alle inden GUI'en lukker
+| Action            | Effect                                                                |
+|-------------------|-----------------------------------------------------------------------|
+| **Stop**          | Sends `SIGINT` to the service's process group                         |
+| **Stop all**      | Sends `SIGINT` to all services; escalates to `SIGTERM` after 3 s      |
+| Close window (X)  | Calls **Stop all** before exit                                        |
 
-> **Bemærk om SSH**: SIGINT sendes til den lokale ssh-klient. Med `-tt`
-> i kommandoen får remote-processen også SIGINT via TTY'en. Hvis Jetson
-> stadig holder noget åbent (sjældent), så `ssh elrik@... pkill -f
-> ros2` rydder det op manuelt.
+`SIGINT` is delivered to the local SSH client. Remote processes receive
+it through the allocated TTY (`ssh -tt`). If a remote process remains
+after shutdown, terminate it manually:
 
-## Tilpasning
+```bash
+ssh elrik@192.168.1.105 pkill -f ros2
+```
 
-Alle services + demo-sekvens er defineret som lister øverst i
-[launcher_gui_node.py](../arm_commissioning/launcher_gui_node.py):
+## Customisation
+
+Service definitions and the demo sequence are declared at the top of
+[`launcher_gui_node.py`](../arm_commissioning/launcher_gui_node.py):
 
 ```python
 SERVICES = [
@@ -112,22 +86,37 @@ SERVICES = [
 DEMO_SEQUENCE = [("dhcp", 1.0), ("jetson_camera", 6.0), ...]
 ```
 
-Tilføj/ret efter behov og rebuild:
+Rebuild after editing:
 
 ```bash
 colcon build --packages-select arm_commissioning --symlink-install
 ```
 
-(Med `--symlink-install` kan du bare ændre Python-filen og genstarte
-GUI'en uden at bygge.)
+## Troubleshooting
 
-## Fejlfinding
+**`_tkinter.TclError: no display name and no $DISPLAY`**
+Running over SSH without X forwarding. Run on a machine with a display.
 
-| Symptom | Sandsynlig årsag | Fix |
-|---------|------------------|-----|
-| `_tkinter.TclError: no display name and no $DISPLAY` | Kører over SSH uden X | Kør på laptoppen direkte |
-| `pkexec` fejler / dnsmasq starter ikke | Polkit accepterede ikke password | Prøv igen, eller kør `sudo dnsmasq …` manuelt i terminal |
-| SSH til Jetson hænger med 'Connection refused' | Jetson ikke booted endnu / DHCP gav ikke adresse | Vent på `DHCPACK` i log før du starter Jetson-services |
-| Vuer viser hvid/sort skærm | Camera-topic ikke aktiv | Tjek `ros2 topic hz /zed/zed_node/left/image_rect_color/compressed/rotated/compressed` (skal være ~60 Hz) |
-| Quest "site can't be reached" | adb reverse ikke aktiv | Tjek `adb devices` viser headset; restart adb_reverse-service |
-| Status-prik blev rød straks ved start | Kommandoen fejlede | Læs log-ruden — den indeholder den fulde fejlmeddelelse |
+**`pkexec` fails / DHCP does not start**
+Polkit rejected the password. Retry, or run `sudo dnsmasq …` directly in
+a terminal.
+
+**SSH to Jetson reports `Connection refused`**
+Jetson not booted or no DHCP lease. Wait for `DHCPACK` in the DHCP log
+before starting Jetson services.
+
+**Vuer shows a blank screen**
+Camera topic inactive. Verify the topic is publishing:
+
+```bash
+ros2 topic hz /zed/zed_node/left/image_rect_color/compressed/rotated/compressed
+```
+
+Expected rate is approximately 60 Hz.
+
+**Quest shows "site can't be reached"**
+`adb reverse` is not active. Verify `adb devices` lists the headset and
+restart the adb-reverse service.
+
+**Status dot turns red immediately on start**
+The command failed. Read the log pane for the full error message.

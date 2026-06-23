@@ -1,4 +1,3 @@
 # WebRTC Server Camera
 
-WebRTC server for the ZED cameras from StereoLabs.
-
+WebRTC server for Stereolabs ZED cameras.

@@ -1,4 +1,3 @@
 # Network Bridge
 
-Manages communication with ROS and a ZeroMQ network.  
-
+Bridges ROS topics to and from a ZeroMQ network.

@@ -1,35 +1,45 @@
 # arm_commissioning
 
-Idriftsættelses- og test-værktøjer for **én humanoid-arm** (Wattson, 7 DOF
-med Waveshare ST3215 servoer). Bygget med rapport-dokumentation for øje:
-alle målinger gemmes som CSV + PNG i
-`~/humanoid_ws/test_results/<dato>/<...>/` så de kan klippes direkte ind
-i eksamensrapporten.
+Commissioning and test tools (Wattson). All measurements are stored as CSV and PNG in
+`~/humanoid_ws/test_results/<date>/<...>/`.
 
-## Værktøjer
+## Tools
 
-| Status | Værktøj | Formål | Detaljer |
-|--------|---------|--------|----------|
-| ✅ | `calibration_tool_node` | Find `angle_software_min/max` + `default_position` pr. servo | [docs/calibration_tool.md](docs/calibration_tool.md) |
-| ✅ | `step_response_node` | Mål rise time / overshoot / settling time pr. servo | [docs/step_response.md](docs/step_response.md) |
-| ✅ | `repeatability_node` | Mål positionsspredning over N gentagne kørsler | [docs/repeatability.md](docs/repeatability.md) |
-| ✅ | `power_monitor_node` | Logg + live-vis strømforbrug pr. servo | [docs/power_monitor.md](docs/power_monitor.md) |
-| ✅ | `launcher_gui` | Tkinter control panel — start hele robotten med én knap | [docs/launcher_gui.md](docs/launcher_gui.md) |
+**`calibration_tool_node`**
+Find `angle_software_min`, `angle_software_max`, and `default_position`
+per servo. See [docs/calibration_tool.md](docs/calibration_tool.md).
 
-## Fælles forudsætninger
+**`step_response_node`** *(WIP)*
+Measure rise time, overshoot, and settling time per servo. See
+[docs/step_response.md](docs/step_response.md).
 
-Inden et hvilket som helst værktøj startes:
+**`repeatability_node`** *(WIP)*
+Measure positional spread over `N` repeated cycles between two poses.
+See [docs/repeatability.md](docs/repeatability.md).
 
-1. Servo-stack kører: `ros2 launch energirobotter_bringup servos.launch.py`
-2. ESP32 Serial Forwarding er aktiveret (se workspace-rod
-   [README](../../README.md))
-3. **INGEN andre `/joint_states`-publishere kører** (luk `slider_control`,
-   `animation_player`, teleop m.fl.) — tjek med
-   `ros2 topic info /joint_states`
-4. `feedback_enabled: true` i servo-config for de servoer du måler på
-   (kræves af alt undtagen `calibration_tool_node`)
+**`power_monitor_node`** *(WIP)*
+Log and live-display current draw per servo. See
+[docs/power_monitor.md](docs/power_monitor.md).
 
-## Byg + source
+**`launcher_gui`**
+Tkinter control panel that starts the full robot stack from a single
+window. See [docs/launcher_gui.md](docs/launcher_gui.md).
+
+## Common prerequisites
+
+Before any tool is started:
+
+1. The servo stack is running:
+   `ros2 launch energirobotter_bringup servos.launch.py`
+2. ESP32 Serial Forwarding is active (see the workspace-root
+   [README](../../README.md)).
+3. No other `/joint_states` publisher is running. Close
+   `slider_control`, `animation_player`, teleop, and similar nodes.
+   Verify with `ros2 topic info /joint_states`.
+4. `feedback_enabled: true` is set in the servo config for every servo
+   to be measured. Required by all tools except `calibration_tool_node`.
+
+## Build and source
 
 ```bash
 cd ~/humanoid_ws
@@ -38,15 +48,16 @@ colcon build --packages-select arm_commissioning \
 source install/setup.bash
 ```
 
-## Output-konvention
+## Output convention
 
-Alle test-værktøjer skriver til
+All test tools write to
 `~/humanoid_ws/test_results/<YYYY-MM-DD>/<scope>/<YYYY-MM-DD_HHMMSS>_*.{csv,png}`,
-hvor `<scope>` er enten et servo-navn (step_response, repeatability) eller
-et scenarie-navn (power_monitor). Det betyder:
+where `<scope>` is either a servo name (step_response, repeatability) or
+a scenario name (power_monitor).
 
-- CSV'erne er rapport-klare — én række pr. sample, kolonne-headers på første linje
-- PNG'erne har metrics indlejret i grafen, så de kan stå alene som figurer
-- Tidsstempler i filnavne gør at gentagne kørsler ikke overskriver hinanden
+- CSV files have one row per sample and column headers on the first line.
+- PNG files contain the metrics embedded in the plot.
+- Timestamps in filenames ensure that repeated runs do not overwrite
+  each other.
 
-Se de enkelte tool-dokumenter for kolonne-formatet i hver CSV.
+See the individual tool documents for the column format of each CSV.

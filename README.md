@@ -1,20 +1,6 @@
 # Energirobotter ROS Workspace
 
-Packages for Energinet's Humanoid Robots, part of the project "Energirobotter". 
-
-- [Energirobotter ROS Workspace](#energirobotter-ros-workspace)
-  - [Setup](#setup)
-    - [Dialout Group](#dialout-group)
-    - [Repository](#repository)
-    - [Dependencies](#dependencies)
-      - [ZED SDK](#zed-sdk)
-        - [Ubuntu 22.04](#ubuntu-2204)
-        - [Jetson Orin Nano (Jetpack 6.0)](#jetson-orin-nano-jetpack-60)
-      - [ZED ROS 2 Wrapper](#zed-ros-2-wrapper)
-    - [AI model](#ai-model)
-    - [Build](#build)
-  - [Usage](#usage)
-
+ROS 2 (Humble) packages for Energinet's humanoid robots Elrik and Wattson.
 
 ## Setup
 
@@ -32,7 +18,7 @@ Reboot your system.
 Clone this repository into a `workspace/src/` folder:
 
 ```
-git clone --recursive https://github.com/energinet-digitalisering/energirobotter-ros-workspace.git
+git clone --recursive https://github.com/dk-teknologisk-ALMC/energirobotter-ros-workspace-alex.git
 ```
 
 Also clone other needed repos here:
@@ -41,6 +27,14 @@ git clone -b jazzy https://bitbucket.org/traclabs/trac_ik.git
 ```
 
 Add an empty file called `COLCON_IGNORE` in the `src/trac_ik/trac_ik_kinematics_plugin/` folder, to not build the `MoveIt` plugin. 
+
+> **Note on workspace path:** `xacro` breaks when the workspace path contains
+> a space (e.g. `~/Desktop/Humanoid build/workspace`). If your workspace is
+> in such a path, create a space-free symlink and use it for all commands:
+> ```
+> ln -sfn "$HOME/Desktop/Humanoid build/workspace" ~/humanoid_ws
+> ```
+> From here on, use `~/humanoid_ws/...` everywhere.
 
 
 ### Dependencies
@@ -53,8 +47,26 @@ rosdep install --from-paths src --ignore-src -r -y
 
 Python modules not included in [rosdistro](https://github.com/ros/rosdistro/blob/master/rosdep/python.yaml) can be installed from root of workspace with:
 ```
-pip install -r src/energirobotter-ros-workspace/requirements.txt
+pip install -r src/energirobotter-ros-workspace-alex/requirements.txt
 ```
+
+#### System packages
+
+A handful of system packages are needed by the GUI tools and the
+laptop-as-DHCP bringup procedure, but are not pulled in by `rosdep`:
+
+```
+sudo apt install -y \
+    python3-tk \
+    python3-matplotlib \
+    zenity \
+    dnsmasq
+```
+
+- `python3-tk` — `arm_commissioning/launcher_gui` (Tkinter control panel)
+- `python3-matplotlib` — `arm_commissioning` test nodes (step response, repeatability, power monitor)
+- `zenity` — `launcher_gui` sudo-ASKPASS prompt for root-owned services
+- `dnsmasq` — standalone DHCP server for the Jetson when no router is available (see *Bringing up the robot for Slider Control* below)
 
 #### ZED SDK
 
@@ -75,19 +87,28 @@ Replace the `zed2i.yaml` and `zedm.yaml` files in `~/zed_wrapper_ws/src/zed-ros2
 The `ZED_SDK` may have upgraded Numpy to 2.x, but ROS was built against Numpy 1.x, so it should be downgraded by running: `pip3 install "numpy<2" --force-reinstall`
 
 ### AI model
-Download face detection model [yolov8n-face.pt](https://github.com/akanametov/yolov8-face/releases/download/v0.0.0/yolov8n-face.pt) from the [yolo-face repository](https://github.com/akanametov/yolo-face/tree/v0.0.0). Move the model into the `src/energirobotter-ros-workspace/pkgs_vision/face_detection/models/` directory.
+Download face detection model [yolov8n-face.pt](https://github.com/akanametov/yolov8-face/releases/download/v0.0.0/yolov8n-face.pt) from the [yolo-face repository](https://github.com/akanametov/yolo-face/tree/v0.0.0). Move the model into the `src/energirobotter-ros-workspace-alex/pkgs_vision/face_detection/models/` directory.
 
 
 ### Build
 
 Build `workspace` with:
 ```
-colcon build --symlink-install
+colcon build --symlink-install --cmake-args -DPython3_EXECUTABLE=/usr/bin/python3
 ```
+
+The explicit `-DPython3_EXECUTABLE=/usr/bin/python3` flag avoids CMake
+picking up a Conda Python by accident; safe to drop if you never use Conda.
 
 ## Usage
 
-Refer to the `README.md` in the `energirobotter_bringup` package for a description of the different launch files - aka. features.
+The most useful entry points for a new operator:
+
+- [`energirobotter_bringup/README.md`](energirobotter_bringup/README.md) — launch files for each robot mode (servos, camera, slider control, animation playback, teleoperation).
+- [`pkgs_commissioning/arm_commissioning/README.md`](pkgs_commissioning/arm_commissioning/README.md) — calibration and test tools (`calibration_tool_node`, `step_response_node`, `repeatability_node`, `power_monitor_node`) and the `launcher_gui` Tkinter control panel that starts the whole stack with one click.
+- [`scripts/setup/HARDWARE_SETUP.md`](scripts/setup/HARDWARE_SETUP.md) — procedure for setting up a fresh Jetson Orin Nano + ESP32 modules from scratch (only needed when replacing hardware).
+
+The sections below describe the full laptop-side bringup procedure in detail, including the USB port mapping for the three ESP32 servo-bus boxes.
 
 ## Bringing up the robot for Slider Control (laptop-as-DHCP setup)
 
@@ -100,8 +121,10 @@ running so you can drive individual joints by hand.
 
 - Laptop NIC `enp0s31f6` is configured with both `192.168.123.150/24` and
   `192.168.1.150/24` (set up once, persists across reboots).
-- Jetson MAC `48:b0:2d:eb:e3:58` is pinned to `192.168.1.105` (hostname
-  `elrik-jetson`).
+- Jetson is pinned to `192.168.1.105` (hostname `elrik-jetson`). Two
+  Jetson MACs are reserved — only one robot is ever powered on at a time:
+    - `48:b0:2d:eb:e3:58` — original (Energinet) robot Jetson
+    - `ac:3a:e2:12:39:5f` — bench Jetson (Wattson, JP6.0 SD-card image)
 - Workspace is reachable at a **path without spaces**. The actual workspace
   lives at `~/Desktop/Humanoid build/workspace`, but the space in
   "`Humanoid build`" breaks `xacro` when launch files pass the URDF path
@@ -123,13 +146,14 @@ running so you can drive individual joints by hand.
 Open a new terminal on the **laptop**:
 
 ```bash
-sudo dnsmasq --no-daemon --port=0 --interface=enp0s31f6 --bind-interfaces \
+sudo rm -f /var/lib/misc/dnsmasq.leases
+sudo dnsmasq --no-daemon --port=0 --interface=enp0s31f6 --bind-interfaces --dhcp-authoritative \
   --dhcp-range=192.168.1.100,192.168.1.200,255.255.255.0,1h \
-  --dhcp-host=48:b0:2d:eb:e3:58,192.168.1.105,elrik-jetson \
+  --dhcp-host=48:b0:2d:eb:e3:58,ac:3a:e2:12:39:5f,192.168.1.105,elrik-jetson \
   --log-dhcp
 ```
 
-Leave this terminal running. Now power on the Jetson. If it does not pick up an
+The `rm` clears any stale leases so the reservation is honored; `--dhcp-authoritative` forces NAK on requests that don't match the reservation. Both Jetson MACs share one `--dhcp-host` entry because dnsmasq rejects multiple entries with the same IP. Leave this terminal running. Now power on the Jetson. If it does not pick up an
 IP within ~30 s, unplug and replug the Ethernet cable on the Jetson side to
 force a fresh DHCP request. Watch the `--log-dhcp` output for a `DHCPACK` to
 `192.168.1.105`.
@@ -150,38 +174,48 @@ ros2 launch energirobotter_bringup camera.launch.py camera_model:=zed2i rotate:=
 Wait until the camera node prints `Camera ready` (or equivalent) before
 continuing.
 
-Now physically plug in the three ESP32 servo boxes. **The plug-in order
-no longer matters** — each box is bound to a specific physical USB port
-on the Jetson via `/dev/serial/by-path/`. You just need to put each
-coloured box into its assigned port:
+Now physically plug in the three ESP32 servo boxes. The plug-in order
+does not matter — each box is bound to a specific physical USB port on
+the Jetson via `/dev/serial/by-path/`. Each coloured box must go into
+its assigned port:
 
 ```
 Jetson USB block (4 ports, viewed from the back):
 
   +--------------------+--------------------+
-  |  GUL  (port 2.3)   |  SORT (ZED kamera) |
+  |  YELLOW (port 2.3) |  BLACK (ZED camera)|
   |  right arm + head  |                    |
   +--------------------+--------------------+
-  |  HVID (port 2.1)   |  RØD  (port 2.2)   |
+  |  WHITE  (port 2.1) |  RED   (port 2.2)  |
   |  hands             |  left arm          |
   +--------------------+--------------------+
 ```
 
-Mapping in code (`pkgs_control/servo_control/servo_control/wattson_servo_manager_node.py`):
+The mapping is defined in
+`pkgs_control/servo_control/servo_control/wattson_servo_manager_node.py`:
 
-| Box   | Physical port | by-path symlink                                                | Drives                |
-|-------|---------------|----------------------------------------------------------------|-----------------------|
-| Rød   | 2.2           | `/dev/serial/by-path/platform-3610000.usb-usb-0:2.2:1.0-port0` | left arm              |
-| Gul   | 2.3           | `/dev/serial/by-path/platform-3610000.usb-usb-0:2.3:1.0-port0` | right arm + head      |
-| Hvid  | 2.1           | `/dev/serial/by-path/platform-3610000.usb-usb-0:2.1:1.0-port0` | both hands            |
+**Red (port 2.2)**
+`/dev/serial/by-path/platform-3610000.usb-usb-0:2.2:1.0-port0` —
+drives the left arm.
+
+**Yellow (port 2.3)**
+`/dev/serial/by-path/platform-3610000.usb-usb-0:2.3:1.0-port0` —
+drives the right arm and head.
+
+**White (port 2.1)**
+`/dev/serial/by-path/platform-3610000.usb-usb-0:2.1:1.0-port0` —
+drives both hands.
 
 Verify all three symlinks are present before continuing:
+
 ```bash
 ls -l /dev/serial/by-path/
 ```
-You should see three `platform-3610000.usb-usb-0:2.{1,2,3}:1.0-port0` entries.
-The `ttyUSBN` numbers they point to are irrelevant — they can shuffle on every
-replug and the launch files don't care.
+
+All three `platform-3610000.usb-usb-0:2.{1,2,3}:1.0-port0` entries must
+be present. The `ttyUSBN` numbers they point to are irrelevant and may
+change between replugs; the launch files resolve the path through the
+stable `by-path` symlink.
 
 ### Terminal 3 — Laptop: SSH again and start the servo stack
 
@@ -195,8 +229,8 @@ sw
 ros2 launch energirobotter_bringup servos.launch.py
 ```
 
-**⚠ As soon as this launch is running the servos are powered and will move
-to their `default_position`. Keep hands clear.**
+**Warning:** as soon as this launch is running the servos are powered and will
+move to their `default_position`. Keep hands clear.
 
 ### Terminal 5 — Laptop: launch the manual slider GUI
 
@@ -259,19 +293,29 @@ ros2 run animation_player animation_player_node --ros-args \
   -p csv_file_path:=/home/teleoperation/humanoid_ws/install/energirobotter_bringup/share/energirobotter_bringup/animations/gesture_wave.csv
 ```
 
-To play a different animation, just swap the filename at the end of the path.
-The node prints nothing while it runs — that's normal. When the last frame
-has been played it just sits idle holding the final pose. **Ctrl-C** to stop.
+To play a different animation, swap the filename at the end of the path.
+The node does not print progress while it runs. When the last frame has
+been played the node sits idle holding the final pose. Use Ctrl-C to
+stop.
 
 Available CSV files (in `energirobotter_bringup/animations/`):
 
-| Category   | Files |
-|------------|-------|
-| Gestures             | `gesture_wave.csv`, `gesture_yes.csv`, `gesture_no.csv`, `gesture_shrug.csv` |
-| Poses (single frame) | `pose_peace.csv`, `pose_rocknroll.csv`, `pose_handshake.csv`, `pose_kungfu.csv` |
-| Animations           | `animation_headbang.csv`, `animation_fingerguns.csv`, `idle1.csv` |
-| Mimic                | `mimic_alexander.csv`, `mimic_optimus.csv` |
-| Test / recordings    | `test_servos.csv`, `recording_*_test.csv` |
+**Gestures**
+`gesture_wave.csv`, `gesture_yes.csv`, `gesture_no.csv`,
+`gesture_shrug.csv`.
+
+**Poses (single frame)**
+`pose_peace.csv`, `pose_rocknroll.csv`, `pose_handshake.csv`,
+`pose_kungfu.csv`.
+
+**Animations**
+`animation_headbang.csv`, `animation_fingerguns.csv`, `idle1.csv`.
+
+**Mimic**
+`mimic_alexander.csv`, `mimic_optimus.csv`.
+
+**Test / recordings**
+`test_servos.csv`, `recording_*_test.csv`.
 
 **Note:** `gesture_yes.csv` / `gesture_no.csv` use the head joints — they
 require the `elrik_description` robot (head servos via the yellow ESP32 box).
@@ -369,9 +413,10 @@ involved, so no risk of motion.
 **Terminal A1 — Laptop: DHCP for the Jetson** *(skip if already running)*
 
 ```bash
-sudo dnsmasq --no-daemon --port=0 --interface=enp0s31f6 --bind-interfaces \
+sudo rm -f /var/lib/misc/dnsmasq.leases
+sudo dnsmasq --no-daemon --port=0 --interface=enp0s31f6 --bind-interfaces --dhcp-authoritative \
   --dhcp-range=192.168.1.100,192.168.1.200,255.255.255.0,1h \
-  --dhcp-host=48:b0:2d:eb:e3:58,192.168.1.105,elrik-jetson \
+  --dhcp-host=48:b0:2d:eb:e3:58,ac:3a:e2:12:39:5f,192.168.1.105,elrik-jetson \
   --log-dhcp
 ```
 
@@ -436,9 +481,10 @@ close the slider GUI, stop any `animation_player`.
 **Terminal B1 — Laptop: DHCP for the Jetson** *(skip if already running)*
 
 ```bash
-sudo dnsmasq --no-daemon --port=0 --interface=enp0s31f6 --bind-interfaces \
+sudo rm -f /var/lib/misc/dnsmasq.leases
+sudo dnsmasq --no-daemon --port=0 --interface=enp0s31f6 --bind-interfaces --dhcp-authoritative \
   --dhcp-range=192.168.1.100,192.168.1.200,255.255.255.0,1h \
-  --dhcp-host=48:b0:2d:eb:e3:58,192.168.1.105,elrik-jetson \
+  --dhcp-host=48:b0:2d:eb:e3:58,ac:3a:e2:12:39:5f,192.168.1.105,elrik-jetson \
   --log-dhcp
 ```
 
@@ -454,8 +500,8 @@ ros2 launch energirobotter_bringup camera.launch.py camera_model:=zed2i rotate:=
 
 **Terminal B3 — Jetson (via SSH): start the servo stack**
 
-⚠ As soon as this launch runs the servos are powered and move to their
-`default_position`. Keep hands clear.
+**Warning:** as soon as this launch runs the servos are powered and move to
+their `default_position`. Keep hands clear.
 
 ```bash
 ssh elrik@192.168.1.105
@@ -515,17 +561,15 @@ robot's arms start mirroring them through the IK solver.
 ### Troubleshooting
 
 - **Low framerate / laggy image in headset** — expected with
-  `camera_source:=ros`. This path takes the JPEG-compressed ZED frames off
-  the DDS topic and pushes them into Vuer's per-client image queue, which
-  re-encodes and ships them over the websocket as individual frames. It
-  typically lands around 10–15 fps and is noticeably behind real time.
-  The original `webrtc_server_camera` path (which uses `pyzed` + H.264 on
-  the Jetson) is much faster, but it only runs on the Jetson and the
-  signaling/peer-connection setup with the headset over USB is fragile.
-  For the exam demo the `ros` path is the reliable trade-off; live with
-  the framerate. If you really need full-rate stereo video, you have to
-  put the webrtc server back on the Jetson and get the headset onto the
-  same LAN.
+  `camera_source:=ros`. This path takes the JPEG-compressed ZED frames
+  off the DDS topic and pushes them into Vuer's per-client image queue,
+  which re-encodes and ships them over the websocket as individual
+  frames. It typically lands around 10–15 fps and is noticeably behind
+  real time. The `webrtc_server_camera` path (using `pyzed` + H.264 on
+  the Jetson) is significantly faster, but only runs on the Jetson and
+  the signalling/peer-connection setup with the headset over USB is
+  fragile. For full-rate stereo video the WebRTC server must run on the
+  Jetson with the headset on the same LAN.
 - **"Connect call failed (127.0.0.1, 8080)" or 500 on `/offer`** — you ran
   with `camera_source:=ngrok` or `:=server` by accident. Both require the
   `webrtc_server_camera` node, which depends on `pyzed` and only runs on

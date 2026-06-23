@@ -1,36 +1,53 @@
 # Elrik KDL Kinematics
 
-[Original package](https://github.com/pollen-robotics/reachy_2023/tree/develop/reachy_kdl_kinematics) made by Pollen Robotics.
+Forward/inverse kinematics for the Elrik humanoid arms, using KDL.
+Forked from Pollen Robotics'
+[reachy_kdl_kinematics](https://github.com/pollen-robotics/reachy_2023/tree/develop/reachy_kdl_kinematics).
 
-## Getting started
+Loaded automatically by the bringup launch files.
 
-It is automatically loaded by the bringup launch files.
+## Kinematics services
 
-### Kinematics computation service
+- `/r_arm/forward_kinematics` ([GetForwardKinematics.srv](../reachy_msgs/srv/GetForwardKinematics.srv))
+  — forward kinematics for the right arm. Expects 7 joint values:
+  `r_shoulder_pitch`, `r_shoulder_roll`, `r_arm_yaw`, `r_elbow_pitch`,
+  `r_forearm_yaw`, `r_wrist_pitch`, `r_wrist_roll`.
+- `/r_arm/inverse_kinematics` ([GetInverseKinematics.srv](../reachy_msgs/srv/GetInverseKinematics.srv))
+  — inverse kinematics for the right arm.
+- `/l_arm/forward_kinematics` ([GetForwardKinematics.srv](../reachy_msgs/srv/GetForwardKinematics.srv))
+  — forward kinematics for the left arm. Expects 7 joint values:
+  `l_shoulder_pitch`, `l_shoulder_roll`, `l_arm_yaw`, `l_elbow_pitch`,
+  `l_forearm_yaw`, `l_wrist_pitch`, `l_wrist_roll`.
+- `/l_arm/inverse_kinematics` ([GetInverseKinematics.srv](../reachy_msgs/srv/GetInverseKinematics.srv))
+  — inverse kinematics for the left arm.
 
-It exposes services for kinematics (forward and inverse) computations:
+## Cartesian control
 
-* **/r_arm/forward_kinematics** ([GetForwardKinematics.srv](../reachy_msgs/srv/GetForwardKinematics.srv)) - Compute the forward kinematics for the right arm. 7 joints should be provided (r_shoulder_pitch, r_shoulder_roll, r_arm_yaw, r_elbow_pitch, r_forearm_yaw, r_wrist_pitch, r_wrist_roll).
-* **/r_arm/inverse_kinematics** ([GetInverseKinematics.srv](../reachy_msgs/srv/GetInverseKinematics.srv)) - Compute the inverse kinematics for the right arm.
+The node can also act as a Cartesian controller: it listens for Cartesian
+targets, solves IK, and publishes the resulting joint commands directly to
+the corresponding forward-position controller.
 
-* **/l_arm/forward_kinematics** ([GetForwardKinematics.srv](../reachy_msgs/srv/GetForwardKinematics.srv)) - Compute the forward kinematics for the left arm. 7 joints should be provided (l_shoulder_pitch, l_shulder_roll, l_arm_yaw, l_elbow_pitch, l_forearm_yaw, l_wrist_pitch, l_wrist_roll).
-* **/l_arm/inverse_kinematics** ([GetInverseKinematics.srv](../reachy_msgs/srv/GetInverseKinematics.srv)) - Compute the inverse kinematics for the left arm.
+For each arm, two topics are available (right arm shown):
 
-### Cartesian control
+- `/r_arm/target_pose` ([PoseStamped](http://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/PoseStamped.html))
+  — solves IK for the given pose and sends the joint solution to the
+  forward-position controller.
+- `/r_arm/averaged_target_pose` ([PoseStamped](http://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/PoseStamped.html))
+  — averages the pose over the last *n* samples, solves IK, clips the
+  joint solution to a maximum velocity, then publishes the result. Intended
+  for high-frequency use (> 10 Hz).
 
-The node can also be used as an cartesian controller. Indeed, it listens to specific cartesian targets, compute the corresponding joints commands using the inverse kinematics. Then, it publishes those joints commands directly in the corresponding forward_position controller.
-
-For each arm, two topics can be used (for the right arm):
-
-* **/r_arm/target_pose** ([PoseStamped](http://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/PoseStamped.html)) - Compute the inverse kinematics of the given pose and directly send the joint solution to the corresponding forward position controller.
-* **/r_arm/averaged_target_pose** ([PoseStamped](http://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/PoseStamped.html)) - Average the pose (over the n last), compute the inverse kinematics, clip the joint solution according to a max velocity and then publish the result to the corresponding forward posiiotn controller. This version is typically meant to be used at a rather high frequency (> 10Hz).
-
-Similarly for the left arm: **/l_arm/target_pose** and **/l_arm/averaged_target_pose**.
+The left arm exposes the same two topics: `/l_arm/target_pose` and
+`/l_arm/averaged_target_pose`.
 
 ## Requirements
 
-Please note that in order to work properly, this node requires the "/robot_description" and "/joint_states" topics to be published. Depending on your URDF, only the corresponding kinematics chain and their associated services/topics will be created.
+The node needs `/robot_description` and `/joint_states` to be published.
+The specific kinematic chains and corresponding services/topics are
+derived from the URDF.
 
 ## Install
 
+```
 sudo apt install python3-pykdl
+```

@@ -1,59 +1,64 @@
 # power_monitor_node
 
-Live-viewer + logger for robotens **strømforbrug** (per-servo + total).
-Bygget til at producere strømbudget-tabeller og før/efter-grafer til
-rapporten, samt at fungere som live-demonstrationsværktøj.
+> **Status: Work in progress.** This tool is not finished. The
+> subscription, logging, and plotting work end-to-end, but the values
+> and sign handling have not been validated against an external
+> reference meter. Results should be treated as indicative only.
 
-> **Rapport-kapitel**: Strømbudget
+Live viewer and logger for the robot's power consumption (per-servo and
+total). Produces CSV and PNG per scenario.
 
-## Hvad måler det?
+## What it measures
 
-ST3215-servoerne har indbygget shunt og rapporterer på bussen:
+The ST3215 servos have a built-in shunt and report the following on the
+bus:
 
-| Størrelse | Register | Opløsning |
-|-----------|----------|-----------|
-| Spænding | `PRESENT_VOLTAGE` (62) | 0.1 V/unit |
-| Strøm | `PRESENT_CURRENT_L/H` (69–70) | 6.5 mA/unit, bit 15 = sign |
+**Voltage**
+Register `PRESENT_VOLTAGE` (62). Resolution 0.1 V/unit.
 
-Servo-manager-noden gør disse værdier tilgængelige på topicen
-`/servo_power` (se [Topic-format](#topic-format)). Dette værktøj
-abonnerer, beregner `P = V × I` pr. servo + total, og producerer både
-live-visning og CSV/PNG-output pr. scenarie.
+**Current**
+Registers `PRESENT_CURRENT_L/H` (69–70). Resolution 6.5 mA/unit,
+bit 15 is the sign.
 
-## ⚠ Vigtig caveat (skriv eksplicit i rapporten)
+The servo-manager node exposes these values on the `/servo_power` topic
+(see [Topic format](#topic-format)). This tool subscribes, computes
+`P = V × I` per servo and total, and produces both live visualisation
+and CSV/PNG output per scenario.
 
-Målingerne dækker **kun servo-bussen**. De inkluderer IKKE:
+## Scope
+
+The measurements cover the servo bus only. They do not include:
 
 - Jetson Orin Nano (~10–15 W under teleop)
-- ZED-kameraet (~2–3 W ekstra)
-- ESP32 + Wi-Fi
-- 12V → 5V step-down konverteringstab
+- ZED camera (~2–3 W additional)
+- ESP32 and Wi-Fi
+- 12 V to 5 V step-down conversion loss
 
-For et **fuldt system-strømbudget** skal noden suppleres med en ekstern
-USB-strømmåler ved hovedforsyningen (~150 kr på Amazon). Beskriv det vi
-har som **"servo bus power"** i rapport-figurerne — det er fagligt
-korrekt.
+For a full system power budget the node must be supplemented with an
+external USB power meter at the main supply. Label the figures
+accordingly (e.g. "servo bus power").
 
-## Præcision
+## Precision
 
-ST3215's strøm-måling har ~6.5 mA opløsning og spænding ~0.1 V. Det er
-**ikke lab-instrument-præcision**, men mere end nok til at vise idle vs.
-aktiv (typisk 5×–10× forskel) og til at sammenligne iterationer.
+The ST3215 current measurement has approximately 6.5 mA resolution and
+the voltage measurement approximately 0.1 V. This is not
+lab-instrument-grade precision, but is sufficient to distinguish idle
+from active states (typically a 5×–10× difference) and to compare
+iterations.
 
-## Forudsætninger
+## Prerequisites
 
-Se [pakke-README](../README.md). Derudover:
+See the [package README](../README.md). In addition:
 
-- Servoerne skal have `feedback_enabled: true` i deres JSON-config
-  (alle servoer der ønskes med i målingen)
-- Live-viewer (`live:=true`) kræver X11 — kør den på laptoppen, ikke
-  over SSH til Jetson
-- Hvis du arbejder via SSH (fx på Jetson), brug `live:=false` og hent
-  PNG'en bagefter
+- All servos to be included in the measurement must have
+  `feedback_enabled: true` in their JSON config.
+- The live viewer (`live:=true`) requires X11. Run it on the laptop, not
+  over SSH to the Jetson.
+- Over SSH, use `live:=false` and copy the PNG afterwards.
 
-## Kør
+## Run
 
-### Live demo (med viewer)
+### Live demo (with viewer)
 
 ```bash
 ros2 run arm_commissioning power_monitor_node --ros-args \
@@ -62,13 +67,12 @@ ros2 run arm_commissioning power_monitor_node --ros-args \
     -p live:=true
 ```
 
-Et matplotlib-vindue åbner med:
-- Øverst: total W over de seneste `live_window_s` sekunder (default 20s)
-- Nederst: per-servo bar chart, live-opdateret
+A matplotlib window opens with:
 
-Vinduet kan stå åbent under en hel demo — det "ruller" automatisk.
+- Top: total W over the last `live_window_s` seconds (default 20 s).
+- Bottom: per-servo bar chart, updated live.
 
-### Headless (kun CSV/PNG)
+### Headless (CSV and PNG only)
 
 ```bash
 ros2 run arm_commissioning power_monitor_node --ros-args \
@@ -77,109 +81,138 @@ ros2 run arm_commissioning power_monitor_node --ros-args \
     -p live:=false
 ```
 
-### Manuel afslutning
+### Manual stop
 
-`Ctrl-C` skriver CSV/PNG ud med hvad der er nået at samle — du behøver
-ikke vente på `duration_s` udløb.
+`Ctrl-C` writes CSV and PNG with whatever has been collected so far. It
+is not necessary to wait for `duration_s` to elapse.
 
-## Parametre
+## Parameters
 
-| Parameter | Default | Beskrivelse |
-|-----------|---------|-------------|
-| `scenario` | `default` | Mappe-navn for outputtet — vælg sigende navne (`idle`, `animation_wave`, `teleop`) |
-| `duration_s` | 30.0 | Hvornår noden auto-afslutter |
-| `live` | `true` | Åbn matplotlib live-viewer |
-| `live_window_s` | 20.0 | Bredde af rullende vindue i viewer |
-| `output_dir` | `~/humanoid_ws/test_results` | Rod-mappe |
+**`scenario`** (default: `default`)
+Output folder name. Use descriptive names such as `idle`,
+`animation_wave`, or `teleop`.
+
+**`duration_s`** (default: `30.0`)
+Auto-stop time in seconds.
+
+**`live`** (default: `true`)
+Open the matplotlib live viewer.
+
+**`live_window_s`** (default: `20.0`)
+Width of the rolling window in the viewer.
+
+**`output_dir`** (default: `~/humanoid_ws/test_results`)
+Root output directory.
 
 ## Output
 
-`<output_dir>/<YYYY-MM-DD>/<scenario>/<stamp>_power.csv` med kolonner:
+`<output_dir>/<YYYY-MM-DD>/<scenario>/<stamp>_power.csv` with columns:
 
 ```
 t_s, V_<servo1>, V_<servo2>..., A_<servo1>..., W_<servo1>..., total_W
 ```
 
-`<...>_power.png` med:
-- Øverst: total W over hele kørslen + gennemsnitslinje + statistik-boks
-- Nederst: top 12 strømslugere som vandret bar chart
+`<...>_power.png` containing:
 
-I terminalen printes en sammenfatning:
+- Top: total W over the full run, with an average line and a statistics
+  box.
+- Bottom: top 12 current consumers as a horizontal bar chart.
+
+A summary is printed to the terminal:
 
 ```
 === Power summary (idle) ===
-  varighed         = 30.04 s (598 samples)
-  gennemsnitlig W  =  6.81
-  peak W           = 10.42
-  min W            =  5.83
-  std W            =  0.71
-  top 5 (avg W pr. servo):
+  duration        = 30.04 s (598 samples)
+  mean W          =  6.81
+  peak W          = 10.42
+  min W           =  5.83
+  std W           =  0.71
+  top 5 (avg W per servo):
       1.42  joint_left_shoulder_pitch
       1.31  joint_left_shoulder_roll
       ...
 ```
 
-## Foreslåede test-scenarier til rapport
+## Suggested test scenarios
 
-For at få en meningsfuld strømbudget-tabel, kør samme `duration_s` for
-hvert scenarie og sammenlign:
+To produce a meaningful power budget table, run the same `duration_s`
+for each scenario and compare.
 
-| Scenarie | Hvad du gør | Hvad det viser |
-|----------|-------------|----------------|
-| `idle` | Robotten holder default pose, ingen kommandoer sendes | Statisk hvilestrøm (PID kompenserer mod tyngdekraft) |
-| `holding_extended` | Arm strakt ud i tung pose, hold | Max statisk last |
-| `animation_idle1` | Kør `idle1.csv` animation | Typisk "alive" forbrug |
-| `animation_wave` | Kør en aktiv animation | Højere dynamisk forbrug |
-| `step_test` | Kør samtidigt med `step_response_node` | Transient peak under hurtige bevægelser |
-| `teleop_calm` | Quest 3 teleop, små bevægelser | Realistic teleop-budget |
-| `teleop_active` | Quest 3 teleop, store bevægelser | Worst-case teleop |
+**`idle`**
+Robot holds the default pose, no commands are sent. Shows the static
+holding current as the PID compensates against gravity.
 
-### Eksempel — sammenlign idle vs. aktiv
+**`holding_extended`**
+Arm extended into a heavy pose, held. Shows the maximum static load.
+
+**`animation_idle1`**
+Run `idle1.csv` animation. Shows typical "alive" consumption.
+
+**`animation_wave`**
+Run an active animation. Shows higher dynamic consumption.
+
+**`step_test`**
+Run concurrently with `step_response_node`. Shows the transient peak
+during fast motion.
+
+**`teleop_calm`**
+Quest 3 teleop, small movements. Realistic teleop budget.
+
+**`teleop_active`**
+Quest 3 teleop, large movements. Worst-case teleop.
+
+### Example — idle vs. active
 
 ```bash
-# Terminal 1: servo-stack kører
+# Terminal 1: servo stack running
 ros2 launch energirobotter_bringup servos.launch.py
 
 # Terminal 2: idle baseline (30 s)
 ros2 run arm_commissioning power_monitor_node --ros-args \
     -p scenario:=idle -p duration_s:=30.0 -p live:=false
 
-# Terminal 3 (efter idle er færdig): start en animation
+# Terminal 3 (after idle finishes): start an animation
 ros2 launch energirobotter_bringup animation.launch.py csv_file:=idle1
 
-# Terminal 2: kør samme måling under animationen
+# Terminal 2: run the same measurement during the animation
 ros2 run arm_commissioning power_monitor_node --ros-args \
     -p scenario:=animation_idle1 -p duration_s:=30.0 -p live:=false
 ```
 
-Bagefter har du to PNG'er og to CSV'er du kan stille op side om side i
-rapporten.
+The result is two PNGs and two CSVs that can be compared side by side.
 
-## Topic-format
+## Topic format
 
-`/servo_power` er en `sensor_msgs/msg/JointState` hvor felterne
-genbruges som:
+`/servo_power` is a `sensor_msgs/msg/JointState` where the fields are
+repurposed:
 
-| Felt | Indhold | Enhed |
-|------|---------|-------|
-| `name[i]` | Servo-navn | — |
-| `position[i]` | Spænding | V |
-| `velocity[i]` | Strøm (signed) | A |
-| `effort[i]` | Effekt | W |
+**`name[i]`**
+Servo name.
 
-Det er ikke den "rene" semantik for JointState, men det undgår at vi
-skal lave en custom msg, og giver et frit per-element name-mapping.
+**`position[i]`**
+Voltage, in V.
 
-## Fejlfinding
+**`velocity[i]`**
+Current (signed), in A.
 
-- **"Ingen /servo_power samples modtaget"** — tjek
-  `ros2 topic hz /servo_power`. Skulle være ~10 Hz (= control_frequency
-  i servo_manager).
-- **Alle W er nul** — `feedback_enabled: false` i servo-config, eller
-  servoerne svarer ikke (kabel/USB-port).
-- **Negative W på enkelte servoer** — er fysisk korrekt under
-  regenerativ last (servoen bremser en faldende arm). Hvis ALT er
-  negativt, er sign-håndteringen muligvis omvendt for jeres
-  firmware-version — sig til så fikser vi det i `set_feedback_current`.
-- **Live-viewer åbner ikke** — tjek at du er på laptoppen (ikke SSH), og
-  at `python3-tk` er installeret (`sudo apt install python3-tk`).
+**`effort[i]`**
+Power, in W.
+
+## Troubleshooting
+
+**No `/servo_power` samples received**
+Check with `ros2 topic hz /servo_power`. Expected rate is ~10 Hz
+(equal to `control_frequency` in the servo manager).
+
+**All W values are zero**
+`feedback_enabled` is `false` in the servo config, or the servos are
+not responding (cable or USB port issue).
+
+**Negative W on individual servos**
+Physically correct under regenerative load (a servo braking a falling
+arm). If all values are negative, the sign handling is likely inverted
+for the current firmware version.
+
+**Live viewer does not open**
+Verify the command is running on the laptop (not over SSH) and that
+`python3-tk` is installed (`sudo apt install python3-tk`).

@@ -1,3 +1,3 @@
 # Image Processing
 
-Subscribes to image topic and publishes a new processed image topic.
+Subscribes to a camera image topic and republishes a processed image topic.
