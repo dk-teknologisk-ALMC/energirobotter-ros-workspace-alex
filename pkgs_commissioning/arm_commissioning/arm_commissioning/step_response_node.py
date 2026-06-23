@@ -1,6 +1,10 @@
 """
 step_response_node — karakterisering af én ST3215-servos step-respons.
 
+STATUS: WORK IN PROGRESS. Dette værktøj er ikke færdigt. Selve dataopsamlingen
+og plotningen fungerer end-to-end, men metrics, tolerancer og feedback-stien er
+ikke valideret mod en kendt reference. Resultater skal kun bruges vejledende.
+
 Baggrund (rapport, kap. 6):
   ST3215 har intern PID-controller. Vi har ingen direkte adgang til at
   ændre dens parametre fra denne node, men vi kan måle controllerens

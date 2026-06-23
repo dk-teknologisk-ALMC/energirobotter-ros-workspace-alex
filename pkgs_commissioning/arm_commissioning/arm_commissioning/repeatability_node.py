@@ -2,6 +2,11 @@
 repeatability_node — måler positionsspredning ved gentagne ture mellem
 to poser for én ST3215-servo.
 
+STATUS: WORK IN PROGRESS. Dette værktøj er ikke færdigt. Selve bevægelses-
+sekvensen, logning og plotning fungerer end-to-end, men metrics og feedback-
+stien er ikke valideret mod en kendt reference. Resultater skal kun bruges
+vejledende.
+
 Baggrund (rapport, kap. 6 + kap. 7):
   Et 3D-printet armled har flere kilder til ikke-determinisme — backlash i
   printede tandhjul, lille slør i lejer, samt servo-controllerens egen

@@ -94,18 +94,23 @@ SSH_OPTS = (
 # Jetson-side sourcing.
 #
 # Den oprindelige README forventer at brugeren har sat .bashrc op til at
-# source baade ~/energinet/install/setup.bash og ~/zed_wrapper_ws/install/
+# source baade workspace/install/setup.bash og ~/zed_wrapper_ws/install/
 # setup.bash automatisk (README "ZED ROS 2 Wrapper": "do the optional
 # command of sourcing the workspace in .bashrc"). I interaktiv SSH virker
 # det fint, men 'ssh -tt host "cmd"' koerer non-interaktivt og laeser
 # *ikke* .bashrc (bash's '[[ $- == *i* ]] || return'-guard kicker ind).
 # Derfor sourcer vi alle tre workspaces eksplicit her.
 #
-# Vi cd'er desuden til ~/energinet foer source, fordi flere noder paa
+# Vi cd'er desuden til workspace-roden foer source, fordi flere noder paa
 # Jetson'en (fx wattson_servo_manager_node) aabner config-filer via
 # *relative* stier som "install/wattson_description/share/...".
+#
+# Workspace ligger forskelligt paa de to robotter:
+#   ~/humanoid_ws  - bench Jetson (Wattson, JP6.0)
+#   ~/energinet    - original Energinet robot Jetson
+# Vi proever begge - faldback til den der findes.
 JETSON_SOURCES = (
-    "cd ~/energinet"
+    "{ cd ~/humanoid_ws 2>/dev/null || cd ~/energinet; }"
     " && source /opt/ros/humble/setup.bash"
     # zed_wrapper bor i en separat workspace pr. README'en. Source den
     # hvis filen findes; ellers print en klar fejlmeddelelse i log'en og
@@ -117,7 +122,7 @@ JETSON_SOURCES = (
     " || echo \"FEJL: ~/zed_wrapper_ws/install/setup.bash mangler\""
     " \"- camera.launch.py kraever zed_wrapper-pakken,\""
     " \"byg det separate workspace iht README\"; }"
-    " && source ~/energinet/install/setup.bash"
+    " && source \"$PWD/install/setup.bash\""
 )
 
 # Sourcing-prefix for lokale ROS-kommandoer. shell-string der prepends
@@ -151,11 +156,19 @@ SERVICES = [
         # saa selvom vores ikke-root proces ikke kan signalere root-
         # dnsmasq direkte, naar SIGINT'en frem via sudo. Resultat: Stop
         # er oejeblikkeligt og kraever ingen yderligere auth.
+        # Begge Jetson-MACs reserveres til .105 i en samlet --dhcp-host
+        # (dnsmasq accepterer flere hwaddr i samme entry, men afviser to
+        # separate entries med samme IP). Vi koerer kun een robot ad gangen:
+        #   48:b0:2d:eb:e3:58  - original Energinet robot Jetson
+        #   ac:3a:e2:12:39:5f  - bench Jetson (Wattson, JP6.0)
+        # --dhcp-authoritative + wipe af leases-fil tvinger Jetson til at
+        # tage .105 selv hvis den allerede har en stale lease (fx .162).
         "command": (
-            "sudo -A dnsmasq --no-daemon --port=0"
-            " --interface=enp0s31f6 --bind-interfaces"
+            "sudo -A rm -f /var/lib/misc/dnsmasq.leases &&"
+            " sudo -A dnsmasq --no-daemon --port=0"
+            " --interface=enp0s31f6 --bind-interfaces --dhcp-authoritative"
             " --dhcp-range=192.168.1.100,192.168.1.200,255.255.255.0,1h"
-            " --dhcp-host=48:b0:2d:eb:e3:58,192.168.1.105,elrik-jetson"
+            " --dhcp-host=48:b0:2d:eb:e3:58,ac:3a:e2:12:39:5f,192.168.1.105,elrik-jetson"
             " --log-dhcp"
         ),
     },
