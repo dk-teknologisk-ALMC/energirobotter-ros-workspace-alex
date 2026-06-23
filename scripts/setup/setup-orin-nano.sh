@@ -153,16 +153,25 @@ fi
 # Step 8: build the workspace
 # ---------------------------------------------------------------------------
 log "Running rosdep install for workspace..."
+# ROS setup.bash references unbound vars (e.g. AMENT_TRACE_SETUP_FILES);
+# temporarily disable `nounset` while we source it.
+set +u
 # shellcheck source=/dev/null
 source /opt/ros/humble/setup.bash
+set -u
 cd "${WORKSPACE_DIR}"
-rosdep install --from-paths src --ignore-src -r -y || \
+# `trac_ik_kinematics_plugin` is a MoveIt plugin we don't use; its package.xml
+# is COLCON_IGNORE'd but other trac_ik packages still list it as a depend.
+rosdep install --from-paths src --ignore-src -r -y \
+    --skip-keys trac_ik_kinematics_plugin || \
     warn "rosdep install reported issues; some deps may need manual handling (e.g. ZED SDK)."
 
 log "Building workspace with colcon (this may take a while)..."
+set +u
 colcon build --symlink-install \
     --cmake-args -DCMAKE_BUILD_TYPE=Release -DPython3_EXECUTABLE=/usr/bin/python3 \
-    || { err "colcon build failed."; exit 1; }
+    || { set -u; err "colcon build failed."; exit 1; }
+set -u
 
 # ---------------------------------------------------------------------------
 # Step 9: verify by-path symlinks
