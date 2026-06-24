@@ -129,17 +129,10 @@ class CalibrationToolNode(Node):
         with self.lock:
             target_phys = self.target_phys
 
-        # Manager forventer /joint_states i radianer, hvor position = logical
-        # angle (= delta fra default_position). For at undgå at servo_manager's
-        # logic_to_physical clipper på den AKTUELLE software-min/max, sender
-        # vi en logical der altid ligger inden for nuværende software-range.
-        # MEN: vi vil netop kunne udforske grænserne. Derfor publicerer vi
-        # mod den FAKTISKE servo_arm config, men har midlertidigt udvidet
-        # software-min/max på den live servo_manager (manuelt) — alternativt
-        # holdes target inden for software-range under kalibrering.
-        #
-        # Praktisk valg: vi clipper til hardware-min/max (servoen tager ingen
-        # skade) og publicerer logical = target_phys - default_orig.
+        # Clip altid til hardware-range (angle_min/max fra JSON) så servoen
+        # tager ingen skade selv ved tastetryk uden for software-min/max.
+        # Manager forventer /joint_states i radianer som logical angle
+        # (= delta fra default_position), så vi trans formerer her.
         target_phys = float(np.clip(target_phys, self.angle_min_hw, self.angle_max_hw))
         logical_deg = target_phys - self.default_orig
 

@@ -1,31 +1,12 @@
-"""
-repeatability_node — måler positionsspredning ved gentagne ture mellem
-to poser for én ST3215-servo.
+"""Repeterbarheds-måling for én ST3215-servo.
 
-STATUS: WORK IN PROGRESS. Dette værktøj er ikke færdigt. Selve bevægelses-
-sekvensen, logning og plotning fungerer end-to-end, men metrics og feedback-
-stien er ikke valideret mod en kendt reference. Resultater skal kun bruges
-vejledende.
-
-Baggrund (rapport, kap. 6 + kap. 7):
-  Et 3D-printet armled har flere kilder til ikke-determinisme — backlash i
-  printede tandhjul, lille slør i lejer, samt servo-controllerens egen
-  positions-noise. Vi karakteriserer den samlede effekt ved at sende
-  servoen N gange frem og tilbage mellem pose A og pose B og logge den
-  faktiske vinkel ved slutningen af hver "hold"-fase. Spredning (std,
-  max-deviation) på de N målinger pr. pose er et mål for repeterbarhed.
-
-Procedure:
-  1. Kør `servos.launch.py` (servo_manager publicerer /joint_states_feedback).
-  2. Denne node alternerer: A → hold_s → B → hold_s, gentag `cycles` gange.
-     Sidste sample i hver hold-fase logges som "final position" for cyklen.
-  3. Output:
-       <output_dir>/<YYYY-MM-DD>/<joint>/<stamp>_repeat.csv
-       <output_dir>/<YYYY-MM-DD>/<joint>/<stamp>_repeat.png
+Alternerer mellem pose_a og pose_b i N cyklusser, logger faktisk
+position ved hver hold-fases afslutning, og skriver CSV + histogram-PNG
+med std / max-deviation pr. pose.
 
 Eksempel:
-    ros2 run arm_commissioning repeatability_node --ros-args \
-        -p joint_name:=joint_left_shoulder_pitch \
+    ros2 run arm_commissioning repeatability_node --ros-args \\
+        -p joint_name:=joint_left_shoulder_pitch \\
         -p pose_a_deg:=0.0 -p pose_b_deg:=20.0 -p cycles:=10
 """
 
@@ -83,12 +64,11 @@ class RepeatabilityNode(Node):
         # Scheduler-state
         self.t_start = self.get_clock().now()
         self.cycle = 0
-        # Within each cycle: phase 0 = går mod A og holder; phase 1 = mod B og holder
+        # phase 0 = mod A og hold; phase 1 = mod B og hold
         self.phase = 0
         self.phase_start_s = 0.0
         self.last_feedback_deg = None
 
-        # Resultat: lister med "final" målte vinkler ved A og B pr. cyklus
         self.measurements_a = []
         self.measurements_b = []
         self.finished = False
@@ -115,7 +95,6 @@ class RepeatabilityNode(Node):
 
         now = self._elapsed_s()
         if now - self.phase_start_s >= self.hold_s:
-            # log final sample fra denne phase
             if self.last_feedback_deg is not None:
                 if self.phase == 0:
                     self.measurements_a.append(self.last_feedback_deg)
@@ -134,7 +113,6 @@ class RepeatabilityNode(Node):
 
             self.phase_start_s = now
 
-        # publish target (gentages hver tick — servo_manager kører på lower rate)
         msg = JointState()
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.name = [self.joint_name]

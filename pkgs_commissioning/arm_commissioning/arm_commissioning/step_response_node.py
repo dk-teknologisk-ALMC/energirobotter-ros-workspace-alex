@@ -1,31 +1,13 @@
-"""
-step_response_node — karakterisering af én ST3215-servos step-respons.
+"""Step-respons-måling for én ST3215-servo.
 
-STATUS: WORK IN PROGRESS. Dette værktøj er ikke færdigt. Selve dataopsamlingen
-og plotningen fungerer end-to-end, men metrics, tolerancer og feedback-stien er
-ikke valideret mod en kendt reference. Resultater skal kun bruges vejledende.
-
-Baggrund (rapport, kap. 6):
-  ST3215 har intern PID-controller. Vi har ingen direkte adgang til at
-  ændre dens parametre fra denne node, men vi kan måle controllerens
-  faktiske svar på en kommanderet step-input og beregne klassiske mål
-  (rise time, overshoot, settling time) til dokumentation.
-
-Procedure:
-  1. Servo-stakken (`servos.launch.py`) køres separat. Manager publicerer
-     `/joint_states_feedback` med faktiske vinkler (kræver feedback-
-     patch i `wattson_servo_manager_node.py`).
-  2. Denne node holder først `0°` logisk i et baseline-vindue, kommanderer
-     derefter et step på `step_size_deg`, og logger `(t, cmd, actual)`
-     pr. feedback-meddelelse.
-  3. Når `duration_s` er udløbet skrives:
-       <output_dir>/<YYYY-MM-DD_HHMMSS>_<joint>_step.csv
-       <output_dir>/<YYYY-MM-DD_HHMMSS>_<joint>_step.png
-     og en kort statistik printes i terminalen.
+Holder 0° i et baseline-vindue, kommanderer derefter et step på
+step_size_deg og logger (t, cmd, actual) pr. feedback-meddelelse.
+Skriver CSV + plot med rise time, overshoot, settling time og
+steady-state error.
 
 Eksempel:
-    ros2 run arm_commissioning step_response_node --ros-args \
-        -p joint_name:=joint_left_shoulder_pitch \
+    ros2 run arm_commissioning step_response_node --ros-args \\
+        -p joint_name:=joint_left_shoulder_pitch \\
         -p step_size_deg:=10.0 -p duration_s:=3.0
 """
 
@@ -50,9 +32,7 @@ class StepResponseNode(Node):
         self.declare_parameter("baseline_s", 0.5)
         self.declare_parameter("duration_s", 3.0)
         self.declare_parameter("publish_rate", 50.0)
-        # Settling-tolerance som procent af step-størrelse. ST3215's interne
-        # PID har en deadband på ~0.3-0.5°, så 2% (default) er urealistisk
-        # for små steps. 10% er et mere realistisk udgangspunkt for hardware.
+        # Settling-tolerance i procent af step-størrelse.
         self.declare_parameter("settling_tol_pct", 10.0)
         self.declare_parameter(
             "output_dir",
@@ -73,7 +53,6 @@ class StepResponseNode(Node):
             )
             raise SystemExit(2)
 
-        # I/O setup — bibliotek for dagens målinger
         date_dir = datetime.now().strftime("%Y-%m-%d")
         self.run_dir = os.path.join(self.output_dir, date_dir, self.joint_name)
         os.makedirs(self.run_dir, exist_ok=True)
@@ -106,7 +85,6 @@ class StepResponseNode(Node):
         return dt.nanoseconds * 1e-9
 
     def _current_command_deg(self):
-        """Trin: 0° i baseline-fasen, derefter step_size_deg."""
         if self._elapsed_s() < self.baseline_s:
             return 0.0
         return self.step_size_deg
@@ -180,39 +158,31 @@ class StepResponseNode(Node):
     # ---------------------- analysis ---------------------------
 
     def _compute_metrics(self, t, cmd, act):
-        """Standard step-response mål, beregnet på post-step-vinduet.
-
-        Vigtigt: `cmd` er logisk vinkel (delta fra default_position) og
-        `act` er fysisk vinkel (rå servo-vinkel). De ligger i forskellige
-        reference-frames. Vi normaliserer derfor `act` ved at trække
-        baseline-gennemsnittet fra — så begge størrelser er "delta fra
-        baseline" og direkte sammenlignelige.
-        """
+        # cmd er logisk delta fra default_position; act er fysisk vinkel.
+        # Normaliser act ved at trække baseline-gennemsnittet fra, så
+        # begge størrelser er delta fra baseline og sammenlignelige.
         post = t >= self.baseline_s
         if not np.any(post):
             return {}
 
-        # Baseline (fysisk start-vinkel inden step)
         pre = t < self.baseline_s
         a0_phys = float(np.mean(act[pre])) if np.any(pre) else float(act[post][0])
 
         tp = t[post] - self.baseline_s  # tid relativt til step-tidspunkt
         ap = act[post] - a0_phys  # normaliseret actual (delta fra baseline)
-        target = self.step_size_deg  # logisk target = kommanderet delta
-        a0 = 0.0  # i normaliseret space starter vi pr. definition i 0
+        target = self.step_size_deg
+        a0 = 0.0
 
         delta = target - a0
         if abs(delta) < 1e-6:
             return {"note": "step_size = 0 — kan ikke beregne respons-mål"}
 
-        # Rise time 10% → 90%
         thresh_10 = a0 + 0.1 * delta
         thresh_90 = a0 + 0.9 * delta
         t_10 = self._first_crossing(tp, ap, thresh_10, delta)
         t_90 = self._first_crossing(tp, ap, thresh_90, delta)
         rise_time = (t_90 - t_10) if (t_10 is not None and t_90 is not None) else None
 
-        # Peak / overshoot
         if delta > 0:
             peak = float(np.max(ap))
             overshoot_pct = max(0.0, (peak - target) / abs(delta) * 100.0)
@@ -220,7 +190,7 @@ class StepResponseNode(Node):
             peak = float(np.min(ap))
             overshoot_pct = max(0.0, (target - peak) / abs(delta) * 100.0)
 
-        # Settling time: tid før |actual - target| <= tol% af |delta| og forbliver der
+        # Settling: første tidspunkt hvor |actual - target| <= tol og forbliver der.
         tol = (self.settling_tol_pct / 100.0) * abs(delta)
         within = np.abs(ap - target) <= tol
         settling_time = None
@@ -243,7 +213,6 @@ class StepResponseNode(Node):
 
     @staticmethod
     def _first_crossing(t, y, level, delta):
-        """Første tidspunkt hvor y krydser level fra siden af baseline."""
         if delta > 0:
             mask = y >= level
         else:
@@ -266,15 +235,14 @@ class StepResponseNode(Node):
     # ---------------------- plotting ---------------------------
 
     def _plot(self, t, cmd, act, metrics, path):
-        # matplotlib importeres her for at undgå at den loades hvis vi
-        # afslutter tidligt pga. fejl
+        # Lazy import så matplotlib ikke loades hvis vi afslutter tidligt.
         import matplotlib
 
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
 
-        # Normalisér actual til "delta fra baseline" så det er
-        # direkte sammenligneligt med kommandoen (logisk vinkel).
+        # Normalisér actual til delta fra baseline (direkte sammenligneligt
+        # med kommandoen, som er logisk vinkel).
         baseline_phys = float(metrics.get("baseline_phys_deg", 0.0))
         act_norm = act - baseline_phys
 
@@ -296,8 +264,6 @@ class StepResponseNode(Node):
         ax.legend(loc="upper left")
 
         if metrics:
-            # Dansk "forklar-til-eksamen" labels (samme nøgle-rækkefølge som
-            # CSV-summary, så grafen og notaterne hold sig synkroniseret).
             label_map = {
                 "rise_time_s":            "Stigningstid (10→90%)",
                 "overshoot_pct":          "Oversving",
