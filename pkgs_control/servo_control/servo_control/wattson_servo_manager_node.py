@@ -46,13 +46,6 @@ class ServoManagerNode(Node):
         )
 
         # Publishers
-        # /joint_states_feedback mirrors /joint_states but carries the
-        # *actual* servo angles read back from the hardware via
-        # DriverWaveshare.get_servo_angles(). Consumers are commissioning
-        # tools (step_response_node, repeatability_node) that need the real
-        # response in order to characterise the servo controller (rise time,
-        # overshoot, repeatability spread). Published in SI units (rad) to
-        # stay consistent with the command topic.
         self.pub_joints_feedback = self.create_publisher(
             JointState, "/joint_states_feedback", 10
         )
@@ -81,11 +74,6 @@ class ServoManagerNode(Node):
             1.0 / (1.0 * self.control_frequency), self.callback_timer_hands
         )
 
-        # Configure servo managers
-        # Arms
-        # NOTE: ports are addressed via /dev/serial/by-path/ so the assignment
-        # is bound to the physical USB port on the Jetson, not to plug-in
-        # order. The three ESP32 boxes can now be plugged in in any order.
         json_files_arms_left = [
             f"{config_folder_path}/servo_arm_left_params.json",
         ]
@@ -159,39 +147,6 @@ class ServoManagerNode(Node):
         self.servo_driver_arms_right.update_feedback()
         self.servo_driver_arms_right.command_servos(self.servo_commands_arms)
 
-        # NOTE 2026-06-13 (Bug 12, regressionsfix før eksamensaflevering):
-        # _publish_feedback + _publish_power tilføjede 4 SyncRead-kald pr.
-        # driver pr. 10 Hz cyklus (angles + voltages + currents + powers).
-        # Paa den delte 921600-baud halv-duplex servo-bus tager hver
-        # SyncRead 5-10 ms pr. servo, saa de ekstra reads konkurrerer
-        # direkte med command_servos om bus-cyklusserne. Resultatet var
-        # chunky animations-afspilning og forsinket kommando-respons --
-        # samme klasse fejl som 50 Hz-eksperimentet (Bug 11).
-        #
-        # Vi deaktiverer disse publishes for at gendanne den oprindelige
-        # 10 Hz command-throughput. /joint_states_feedback og /servo_power
-        # er dermed ikke aktive paa control-loopet. En post-eksamens-
-        # loesning ville flytte read-baseret feedback til en separat slow
-        # timer (~1 Hz) paa en anden traad.
-        # self._publish_feedback(
-        #     [self.servo_driver_arms_left, self.servo_driver_arms_right]
-        # )
-        # self._publish_power(
-        #     [self.servo_driver_arms_left, self.servo_driver_arms_right]
-        # )
-
-        # # DEBUG
-        # temperatures = self.servo_driver_arms.get_servo_temperatures()
-        # # positions = self.servo_driver_arms.get_servo_angles()
-
-        # msg = JointState()
-        # msg.header.stamp = self.get_clock().now().to_msg()
-        # msg.name = list(temperatures.keys())
-        # msg.position = list(temperatures.values())
-
-        # self.pub_speeds.publish(msg)
-        # # DEBUG END
-
     def callback_timer_hands(self):
         if not self.servo_commands_hands:
             self.get_logger().info(f"No hand commands received yet...", once=True)
@@ -201,10 +156,6 @@ class ServoManagerNode(Node):
         # Update servos
         self.servo_driver_hands.update_feedback()
         self.servo_driver_hands.command_servos(self.servo_commands_hands)
-
-        # Se NOTE 2026-06-13 i callback_timer_arms -- samme regressionsfix.
-        # self._publish_feedback([self.servo_driver_hands])
-        # self._publish_power([self.servo_driver_hands])
 
     def _publish_feedback(self, drivers):
         """Aggregate get_servo_angles() from one or more drivers and publish
