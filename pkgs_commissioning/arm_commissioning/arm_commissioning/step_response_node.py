@@ -158,9 +158,7 @@ class StepResponseNode(Node):
     # ---------------------- analysis ---------------------------
 
     def _compute_metrics(self, t, cmd, act):
-        # cmd er logisk delta fra default_position; act er fysisk vinkel.
-        # Normaliser act ved at trække baseline-gennemsnittet fra, så
-        # begge størrelser er delta fra baseline og sammenlignelige.
+        # Normaliser act -> delta fra baseline-snit, saa cmd (logisk) og act er sammenlignelige.
         post = t >= self.baseline_s
         if not np.any(post):
             return {}
@@ -241,8 +239,7 @@ class StepResponseNode(Node):
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
 
-        # Normalisér actual til delta fra baseline (direkte sammenligneligt
-        # med kommandoen, som er logisk vinkel).
+        # Normaliser actual -> delta fra baseline (sammenligneligt med cmd).
         baseline_phys = float(metrics.get("baseline_phys_deg", 0.0))
         act_norm = act - baseline_phys
 

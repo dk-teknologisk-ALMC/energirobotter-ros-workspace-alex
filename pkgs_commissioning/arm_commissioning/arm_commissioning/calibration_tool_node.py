@@ -1,36 +1,25 @@
-"""
-Kalibrerings-værktøj for én ST3215-servo ad gangen.
+"""Kalibrerings-vaerktoej for én ST3215-servo ad gangen.
 
-Brug: vælg et joint (servo) i en eksisterende servo-config JSON,
-brug tastaturet til at jogge servoen til fysiske endepositioner og
-nulpunkt, og gem de nye værdier tilbage til JSON-filen.
+Jog et joint med tastaturet, marker hardware-graenser og default,
+gem tilbage til servo-config JSON (med .bak).
 
-Kontrol (sendes til servo via /joint_states som radianer):
-    a / d     :  step  -1° / +1°  (fysisk)
+Tastatur:
+    a / d     :  step  -1° / +1°
     A / D     :  step  -5° / +5°
-    z / c     :  step -0.1° / +0.1°  (finjustering)
+    z / c     :  step -0.1° / +0.1°
     h         :  hjem (default_position fra original JSON)
-    SPACE     :  hold nuværende position (genudsend)
+    SPACE     :  hold position (genudsend)
+    [ / ]     :  marker som angle_software_min / max
+    0         :  marker som default_position
+    p         :  print tilstand
+    s         :  GEM til JSON (.bak backup)
+    x / q     :  afslut
 
-Markeringer (skrives i hukommelse, gemmes først ved 's'):
-    [         :  marker nuværende som angle_software_min
-    ]         :  marker nuværende som angle_software_max
-    0         :  marker nuværende som default_position (nulpunkt)
-    p         :  print nuværende tilstand
-    s         :  GEM til JSON (laver .bak-backup) og forbliv åben
-    x / q     :  afslut (uden at gemme igen)
-
-Sikkerhed:
-  - Tool clipper aldrig udenfor [angle_min, angle_max] fra JSON
-    (hardware-grænser), uanset hvor langt du forsøger at jogge.
-  - Bevægelseshastighed begrænses af servoens angle_speed_max
-    samt af et ekstra konservativt --jog_speed argument.
-  - Start ALTID med at trykke 'h' for at gå til en kendt position
-    inden du begynder at jogge mod endepositioner.
+Clipper altid til [angle_min, angle_max] (hardware). Tryk 'h' før jog.
 
 Eksempel:
-    ros2 run arm_commissioning calibration_tool_node \
-        --ros-args -p config_file:=<sti>/servo_arm_left_params.json \
+    ros2 run arm_commissioning calibration_tool_node \\
+        --ros-args -p config_file:=<sti>/servo_arm_left_params.json \\
                    -p joint_name:=joint_left_shoulder_pitch
 """
 
@@ -129,10 +118,7 @@ class CalibrationToolNode(Node):
         with self.lock:
             target_phys = self.target_phys
 
-        # Clip altid til hardware-range (angle_min/max fra JSON) så servoen
-        # tager ingen skade selv ved tastetryk uden for software-min/max.
-        # Manager forventer /joint_states i radianer som logical angle
-        # (= delta fra default_position), så vi trans formerer her.
+        # Clip til hardware-range; transformer fysisk -> logisk (delta fra default).
         target_phys = float(np.clip(target_phys, self.angle_min_hw, self.angle_max_hw))
         logical_deg = target_phys - self.default_orig
 

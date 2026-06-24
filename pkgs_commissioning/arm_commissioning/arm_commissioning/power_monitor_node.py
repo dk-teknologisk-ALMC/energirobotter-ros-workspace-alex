@@ -263,8 +263,7 @@ class PowerMonitorNode(Node):
     # ---------------------- live viewer ------------------------
 
     def _init_live_viewer(self):
-        # Åbn matplotlib-vindue der opdaterer i realtid. Falder tilbage til
-        # headless hvis der ikke er en X-server eller en interaktiv backend.
+        # Åbn live matplotlib-vindue (fallback til headless ved fejl).
         try:
             import matplotlib
             import matplotlib.pyplot as plt
@@ -277,8 +276,7 @@ class PowerMonitorNode(Node):
             return
 
         try:
-            # Agg-backend tegner ikke vinduer; skift til en interaktiv
-            # backend (TkAgg). Falder tilbage til headless hvis ingen kan loades.
+            # Skift fra Agg (headless) til TkAgg hvis muligt.
             current_backend = matplotlib.get_backend().lower()
             if current_backend == "agg":
                 matplotlib.use("TkAgg", force=True)
@@ -315,7 +313,6 @@ class PowerMonitorNode(Node):
         ax_bar.set_title("Per-servo (live)")
         ax_bar.tick_params(axis="x", labelrotation=75, labelsize=7)
         ax_bar.grid(True, axis="y", alpha=0.3)
-        # Tom bar-container — opdateres pr. frame.
         self._bars = ax_bar.bar(self.servo_names, [0.0] * len(self.servo_names))
         self._ax_line = ax_line
         self._ax_bar = ax_bar
@@ -332,11 +329,10 @@ class PowerMonitorNode(Node):
                 ymax = max(1.0, max(totals) * 1.15)
                 ymin = min(0.0, min(totals) * 1.15)
                 ax_line.set_ylim(ymin, ymax)
-            # Bar-højderne styres af seneste sample.
             last_W = data[-1][3]
             for bar, w in zip(self._bars, last_W):
                 bar.set_height(w if not np.isnan(w) else 0.0)
-            # Filtrer NaN så max() ikke crasher hvis alle samples er NaN.
+            # Filtrer NaN saa max() ikke crasher hvis alle samples er NaN.
             valid = [abs(w) for w in last_W if not np.isnan(w)]
             top = max(1.0, max(valid) * 1.15) if valid else 1.0
             ax_bar.set_ylim(-top, top)
@@ -345,8 +341,7 @@ class PowerMonitorNode(Node):
         self._anim = FuncAnimation(
             self._fig, _update, interval=100, blit=False, cache_frame_data=False
         )
-        # Non-blocking show: rclpy.spin ejer hovedtråden. Vi pumper
-        # matplotlib-event-loop'en periodisk via en lille ROS-timer.
+        # Non-blocking: lille ROS-timer pumper matplotlib-event-loop'en.
         plt.show(block=False)
         self.create_timer(0.05, self._pump_gui)
 
