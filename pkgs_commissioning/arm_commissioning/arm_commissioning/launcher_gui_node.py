@@ -52,6 +52,12 @@ ASKPASS_PATH = _ensure_askpass_script()
 
 JETSON_HOST = "elrik@192.168.1.105"
 
+# Default kamera-topic der vises af "Vis stream"-knappen.
+# Roteret 270° i Jetson-siden af image_rotate_node.
+CAMERA_VIEW_TOPIC = (
+    "/zed/zed_node/left/image_rect_color/compressed/rotated/compressed"
+)
+
 # SSH ControlMaster: én master-socket deles af alle ssh-kald — kun ét
 # password-prompt pr. session (ControlPersist holder masteren oppe 10 min).
 SSH_CONTROL_PATH = "/tmp/launcher_gui_ssh-%r@%h:%p"
@@ -615,6 +621,14 @@ class LauncherApp(tk.Tk):
         svc.start_btn = start
         svc.stop_btn = stop
 
+        # Ekstra "Vis stream"-knap kun paa kamera-rowen — aabner rqt_image_view
+        # som subscriber paa det roterede compressed-topic.
+        if spec["key"] == "jetson_camera":
+            ttk.Button(
+                row, text="\U0001F441 Vis stream", width=14,
+                command=self.open_camera_viewer,
+            ).pack(side="left", padx=(8, 2))
+
     # ------------------------- log/status helpers --------------------------
 
     def log_msg(self, source_key, message):
@@ -752,6 +766,45 @@ class LauncherApp(tk.Tk):
 
     def stop_animation(self):
         self.animation_runner.stop(self.log_msg)
+
+    # ------------------------- camera viewer -------------------------------
+
+    def open_camera_viewer(self):
+        """Spawn rqt_image_view i et rent miljø (uden conda-python).
+
+        ROS Humble's rclpy-binaries er linket mod Python 3.10, men conda's
+        python3.13 maskerer dem hvis vi arver det normale env. 'env -i' giver
+        et tomt miljø som vi fylder minimalt op igen.
+        """
+        display = os.environ.get("DISPLAY", ":0")
+        xauth = os.environ.get("XAUTHORITY", "")
+        home = os.environ.get("HOME", os.path.expanduser("~"))
+        cmd = (
+            "source /opt/ros/humble/setup.bash && "
+            f"exec ros2 run rqt_image_view rqt_image_view {CAMERA_VIEW_TOPIC}"
+        )
+        try:
+            subprocess.Popen(
+                [
+                    "env", "-i",
+                    f"HOME={home}",
+                    f"DISPLAY={display}",
+                    f"XAUTHORITY={xauth}",
+                    "PATH=/usr/bin:/bin",
+                    "bash", "-c", cmd,
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                stdin=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+        except Exception as e:
+            self.log_msg("jetson_camera", f"kunne ikke aabne viewer: {e}")
+            return
+        self.log_msg(
+            "jetson_camera",
+            f"aabner rqt_image_view paa {CAMERA_VIEW_TOPIC}",
+        )
 
     # ------------------------- shutdown ------------------------------------
 
