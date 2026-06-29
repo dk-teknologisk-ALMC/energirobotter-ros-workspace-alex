@@ -1,4 +1,4 @@
-frame,torso,joint_left_shoulder_pitch,joint_left_shoulder_roll,joint_left_arm_yaw,joint_left_elbow_pitch,joint_left_forearm_yaw,joint_left_wrist_pitch,joint_left_wrist_roll,joint_right_shoulder_pitch,joint_right_shoulder_roll,joint_right_arm_yaw,joint_right_elbow_pitch,joint_right_forearm_yaw,joint_right_wrist_pitch,joint_right_wrist_roll
+frame,torso,joint_right_shoulder_pitch,joint_right_shoulder_roll,joint_right_arm_yaw,joint_right_elbow_pitch,joint_right_forearm_yaw,joint_right_wrist_pitch,joint_right_wrist_roll,joint_left_shoulder_pitch,joint_left_shoulder_roll,joint_left_arm_yaw,joint_left_elbow_pitch,joint_left_forearm_yaw,joint_left_wrist_pitch,joint_left_wrist_roll
 1,0.0,22.07,-0.0,0.0,0.0,0.07,0.0,0.0,0.0,-0.0,-0.0,0.0,-0.0,0.0,-0.0
 2,0.0,22.07,0.03,-0.05,0.07,0.29,0.0,0.04,0.0,-0.0,-0.0,0.0,-0.0,0.0,-0.0
 3,0.0,22.07,0.11,-0.18,0.26,0.64,0.0,0.16,0.0,-0.0,-0.0,0.0,-0.0,0.0,-0.0
