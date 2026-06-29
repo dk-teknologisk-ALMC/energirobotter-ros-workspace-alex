@@ -74,7 +74,7 @@
         },
         "joint_left_forearm_yaw": {
             "servo_id": 3,
-            "dir": 1,
+            "dir": -1,
             "gear_ratio": 1,
             "pwm_min": 0,
             "pwm_max": 4095,

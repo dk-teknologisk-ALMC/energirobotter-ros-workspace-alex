@@ -190,8 +190,9 @@ CHECKLIST = [
 DEMO_SEQUENCE = [
     ("dhcp", 1.0),
     ("jetson_camera", 6.0),  # giv kameraet tid til at initialisere
+    ("jetson_servos", 3.0),  # servoer skal være oppe før IK kan styre dem
     ("adb_reverse", 1.0),
-    ("vuer_camera", 1.0),
+    ("vuer_ik", 1.0),       # fuld teleop med IK + servo-styring
 ]
 
 
@@ -519,7 +520,7 @@ class LauncherApp(tk.Tk):
 
         ttk.Button(
             ctrl,
-            text="▶ Start demo (DHCP → Camera → adb → Vuer)",
+            text="▶ Start demo (DHCP → Camera → Servos → adb → Vuer+IK)",
             command=self.start_demo,
         ).pack(side="left")
 
